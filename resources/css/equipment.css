@@ -35,9 +35,24 @@
     font-weight: 800;
 }
 .brand-mark {
-    background: linear-gradient(135deg, #10b981, #0ea5e9) !important;
-    color: #061814 !important;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important;
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    box-shadow: 0 0 22px rgba(16, 185, 129, 0.28) !important;
+}
+.brand-mark svg.lumina-svg-logo {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+.brand-mark .lumina-node-halo {
+    transform-origin: 45.5px 18.5px;
+    animation: lumina-photon-pulse 2.6s ease-in-out infinite;
+}
+@keyframes lumina-photon-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.22; }
+    50% { transform: scale(1.35); opacity: 0.55; }
 }
 .title-dot {
     display: inline-block !important;

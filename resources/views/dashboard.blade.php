@@ -4,7 +4,7 @@
     <a class="skip-link" href="#main">Lewati ke konten</a>
     <header class="site-header">
         <div class="top-row">
-            <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark"><i data-lucide="waypoints"></i></span><span>LUMINA <b>NMS</b><small>OPTICAL NETWORK SYSTEM</small></span></a>
+            <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark">@include('partials.lumina-logo')</span><span>LUMINA <b>NMS</b><small>OPTICAL NETWORK SYSTEM</small></span></a>
             <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong>Overview</strong></div>
             <div class="header-right"><span class="refresh-state" :class="{'is-refreshing':pollBusy}"><span class="dot" :class="runtimeHealthy?'green':'amber'"></span><span x-text="pollBusy?'Memperbarui…':runtimeHealthy?'Monitoring aktif':'Monitor tertunda'"></span></span>
                 <div class="theme-switch" role="group" aria-label="Tema tampilan">

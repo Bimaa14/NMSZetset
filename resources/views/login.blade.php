@@ -3,7 +3,7 @@
 @section('body')
 <main class="login-shell">
     <div class="login-card">
-        <div class="brand-mark"><i data-lucide="waypoints"></i></div>
+        <div class="brand-mark">@include('partials.lumina-logo')</div>
         <p class="eyebrow">OPTICAL NETWORK SYSTEM</p>
         <h1>LUMINA NMS</h1>
         <p class="muted">Masuk untuk mengelola jaringan Anda.</p>
