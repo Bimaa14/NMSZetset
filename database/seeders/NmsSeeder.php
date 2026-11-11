@@ -11,19 +11,19 @@ class NmsSeeder extends Seeder
 {
     public function run(): void
     {
-        if (!app()->environment(['local', 'testing'])) return;
         DB::transaction(function () {
             $tenant = Tenant::firstOrCreate(['name' => 'Bima Network'], ['plan_type' => 'Premium', 'olt_quota' => 22, 'balance' => 750000, 'expired_at' => '2026-10-28 23:59:59']);
             $password = Hash::make('NmsDemo2026!');
             foreach (['isp_owner' => 'Bima Pratama', 'noc' => 'Aditya · NOC', 'cs' => 'Nadia · Customer Support', 'teknisi' => 'Rizky · Teknisi'] as $role => $name) {
                 User::firstOrCreate(['email' => $role.'@bima.test'], ['tenant_id' => $tenant->id, 'name' => $name, 'role' => $role, 'password' => $password]);
             }
+            $tags = collect(['Prioritas' => '#a78bfa', 'Residensial' => '#60a5fa', 'Bisnis' => '#34d399'])->map(fn ($color, $name) => Tag::firstOrCreate(['tenant_id' => $tenant->id, 'tag_name' => $name], ['color_hex' => $color]))->values();
+            if (!app()->environment(['local', 'testing']) && !config('nms.demo')) return;
             $other = Tenant::firstOrCreate(['name' => 'ISP Nusantara'], ['plan_type' => 'Trial', 'olt_quota' => 2]);
             User::firstOrCreate(['email' => 'owner@nusantara.test'], ['tenant_id' => $other->id, 'name' => 'Owner Nusantara', 'role' => 'isp_owner', 'password' => $password]);
             Olt::firstOrCreate(['tenant_id' => $other->id, 'name' => 'OLT-TENANT-LAIN'], ['chassis_type' => 'C320', 'ip_address' => '192.168.2.10', 'status' => 'Online']);
             $names = ['OLT01-MONEX', 'OLT02-PALEDANG', 'OLT03-UNPAS(CIPAKU)', 'OLT04-MASPUR', 'OLT05-KBB', 'OLT06-GUNA_CIPTA', 'OLT SOREANG', 'OLT CIWIDEY', 'OLT LOVINA', 'OLT10-CIMAHI', 'OLT11-LENGKONG', 'OLT12-BUAHBATU', 'OLT13-ANTAPANI', 'OLT14-DAGO', 'OLT15-CILEUNYI', 'OLT16-RANCAEKEK', 'OLT17-PADALARANG', 'OLT18-LEMBANG', 'OLT19-BANJARAN', 'OLT20-MARGAHAYU', 'OLT21-DAYEUHKOLOT', 'OLT22-KATAPANG'];
             $locations = ['Monex, Bandung', 'Paledang, Bandung', 'Cipaku, Bandung', 'Maspur, Bandung', 'Bandung Barat', 'Guna Cipta, Bandung', 'Soreang, Kab. Bandung', 'Ciwidey, Kab. Bandung', 'Lovina, Bandung'];
-            $tags = collect(['Prioritas' => '#a78bfa', 'Residensial' => '#60a5fa', 'Bisnis' => '#34d399'])->map(fn ($color, $name) => Tag::firstOrCreate(['tenant_id' => $tenant->id, 'tag_name' => $name], ['color_hex' => $color]))->values();
             $people = ['Budi_Santoso', 'Siti_Rahayu', 'Warung_Kopi', 'Ahmad_Fauzi', 'Dewi_Lestari', 'Andi_Pratama', 'Toko_Berkah', 'Rina_Wulandari', 'Agus_Setiawan', 'Kantor_Mandiri', 'Dedi_Kurniawan', 'Putri_Anjani', 'Rudi_Hartono', 'Nia_Permata', 'Hendra_Wijaya', 'Cafe_Senja'];
             foreach ($names as $i => $name) {
                 $olt = Olt::firstOrCreate(['tenant_id' => $tenant->id, 'name' => $name], [
