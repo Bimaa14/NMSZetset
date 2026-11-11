@@ -1,0 +1,100 @@
+================================================================================
+SERVER REQUIREMENTS & INFRASTRUCTURE CHECKLIST — NMS OLT ZTE (ZETSET)
+Repository : https://github.com/Bimaa14/NMSZetset
+Target Env : Linux Server (Ubuntu / Debian) — Native LAMP atau XAMPP/LAMPP
+================================================================================
+
+1. SPESIFIKASI MINIMUM SISTEM OPERASI & HARDWARE
+--------------------------------------------------------------------------------
+[ ] OS             : Ubuntu Server 22.04 LTS / 24.04 LTS atau Debian 12 (64-bit)
+[ ] CPU            : Minimal 2 vCPU (Rekomendasi 4 vCPU untuk multi-OLT)
+[ ] RAM            : Minimal 4 GB RAM (Rekomendasi 8 GB jika + Node.js Baileys)
+[ ] Storage        : Minimal 20 GB SSD (untuk database log optik, histori traffic,
+                     dan backup konfigurasi OLT)
+[ ] Timezone       : Asia/Jakarta (WIB) -> `sudo timedatectl set-timezone Asia/Jakarta`
+
+2. ATURAN JARINGAN & FIREWALL (SERVER NMS <--> OLT ZTE / YOTC)
+--------------------------------------------------------------------------------
+Pastikan server Linux memiliki routing IP Private / VLAN Management ke perangkat
+OLT tanpa diblokir firewall internal:
+
+[ ] Outbound dari Server NMS ke IP OLT:
+    - TCP Port 23 (atau port custom) : Telnet CLI ZTE C300/C320 & YOTC C1600
+    - TCP Port 22 (atau port custom) : SSH CLI ZTE (jika transport SSH aktif)
+    - TCP Port 80 / 443              : HTTP/HTTPS Web Management (khusus YOTC C1600)
+    - UDP Port 161                   : SNMPv2c Polling (metrik sistem & traffic OLT)
+
+[ ] Inbound ke Server NMS:
+    - TCP Port 80 / 443              : Akses Web Dashboard NMS (Apache)
+    - TCP Port 22                    : Akses administrasi SSH / PuTTY
+    - UDP Port 1162 (Opsional)       : SNMP Trap Receiver (`nms:trap-listen`)
+
+[ ] Outbound Internet (Untuk Notifikasi Eksternal):
+    - TCP Port 443 (`api.telegram.org`)       : Bot Notifikasi Telegram
+    - TCP Port 443 (`web.whatsapp.com` / WS)  : Node.js Baileys WhatsApp Gateway
+    - TCP Port 3001 (Localhost `127.0.0.1`)   : Internal HTTP API Baileys Gateway
+
+3. PAKET SISTEM LINUX WAJIB (APT PACKAGES)
+--------------------------------------------------------------------------------
+Jalankan perintah berikut pada Ubuntu/Debian:
+  sudo apt update && sudo apt install -y \
+    git curl wget unzip zip ca-certificates gnupg lsb-release \
+    snmp libsnmp-dev supervisor acl
+
+Checklist paket APT:
+[ ] git            : Clone & update repository dari GitHub
+[ ] curl & wget    : Unduh installer & koneksi HTTP/API
+[ ] unzip & zip    : Ekstraksi paket Composer
+[ ] snmp           : Utilitas Net-SNMP sistem
+[ ] libsnmp-dev    : Library header SNMP untuk ekstensi PHP SNMP
+[ ] supervisor     : Menjaga worker queue, poller OLT, & Baileys hidup 24/7
+[ ] acl            : Pengaturan permission direktori `storage` & `bootstrap/cache`
+
+4. KEBUTUHAN PHP 8.2+ & EKSTENSI WAJIB
+--------------------------------------------------------------------------------
+Mendukung PHP bawaan OS (`/usr/bin/php`) maupun PHP bundel LAMPP (`/opt/lampp/bin/php`).
+Versi minimum: PHP 8.2, 8.3, atau 8.4.
+
+Instalasi di Ubuntu/Debian (Native LAMP):
+  sudo apt install -y php-cli php-common php-mysql php-sqlite3 php-snmp \
+    php-mbstring php-xml php-curl php-zip php-bcmath php-intl libapache2-mod-php
+
+Checklist Ekstensi PHP (`php -m`):
+[ ] php-cli        : Eksekusi `artisan`, queue worker, dan poller OLT
+[ ] pdo_mysql      : Koneksi database utama MySQL / MariaDB (LAMPP)
+[ ] mysqli         : Driver tambahan MySQL / MariaDB
+[ ] pdo_sqlite     : Dukungan fallback SQLite & automated testing
+[ ] snmp           : WAJIB untuk pembacaan metrik & grafik traffic SNMP OLT
+[ ] mbstring       : Manipulasi string multibyte (UTF-8)
+[ ] xml / dom      : Parsing XML Laravel
+[ ] curl           : Pengiriman webhook WhatsApp Baileys / Fonnte & Telegram API
+[ ] zip            : Kompresi & paket Composer
+[ ] bcmath         : Kalkulasi presisi angka/keuangan
+[ ] intl           : Format lokalisasi tanggal & mata uang (`id-ID`)
+[ ] openssl        : Enkripsi kredensial OLT & token bot (`APP_KEY`)
+[ ] sockets / pcntl: Komunikasi socket Telnet/SSH/SNMP & kontrol proses worker
+
+5. COMPOSER, NODE.JS, APACHE, & DATABASE (LAMPP / NATIVE)
+--------------------------------------------------------------------------------
+[ ] Composer 2.x   : Dependency manager PHP (`/usr/local/bin/composer`)
+    Instalasi cepat:
+      curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer
+
+[ ] Node.js 20 LTS / 22 LTS & NPM:
+    Dibutuhkan untuk build aset frontend (`vite build`) dan menjalankan
+    microservice WhatsApp `scripts/baileys-gateway.mjs`.
+    Instalasi cepat (NodeSource 20.x):
+      curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+      sudo apt install -y nodejs
+
+[ ] Web Server Apache 2.4+ (Native `/etc/apache2` atau LAMPP `/opt/lampp/etc`):
+    - Modul wajib aktif : `mod_rewrite`, `mod_headers`
+    - DocumentRoot      : Wajib mengarah ke subfolder `/public` proyek
+    - Directory Config  : `AllowOverride All` & `Require all granted`
+
+[ ] Database MySQL 8.0+ / MariaDB 10.6+ (Native atau LAMPP MySQL):
+    - Charset           : `utf8mb4`
+    - Collation         : `utf8mb4_unicode_ci`
+    - Jika menggunakan LAMPP (`/opt/lampp`), socket berada di:
+      `/opt/lampp/var/mysql/mysql.sock`
+================================================================================
