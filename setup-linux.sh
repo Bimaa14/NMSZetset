@@ -49,7 +49,7 @@ if ! $PHP -m | grep -qi "^snmp$"; then
     echo "       Ubuntu/Debian: sudo apt install -y snmp libsnmp-dev php-snmp"
 fi
 
-# 3. Pemeriksaan Composer & Node.js / NPM
+# 3. Pemeriksaan Composer
 if command -v composer >/dev/null 2>&1; then
     COMPOSER="$(command -v composer)"
 elif [ -f "/usr/local/bin/composer" ]; then
@@ -60,13 +60,7 @@ else
     exit 1
 fi
 
-if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-    echo "[ERROR] Node.js 20+ dan NPM belum terpasang. Lihat SERVER-REQUIREMENTS.txt."
-    exit 1
-fi
-
 echo "[INFO] Composer : $($PHP "$COMPOSER" --version --no-ansi 2>/dev/null | head -n 1)"
-echo "[INFO] Node.js  : $(node -v) | NPM: $(npm -v)"
 
 # 4. Instalasi Dependency PHP via Composer
 echo ""
@@ -74,15 +68,24 @@ echo "[STEP 1/4] Menginstal paket PHP (Composer)..."
 export COMPOSER_ALLOW_SUPERUSER=1
 $PHP "$COMPOSER" install --optimize-autoloader --no-dev --no-interaction
 
-# 5. Instalasi Dependency Frontend & Build Vite
+# 5. Aset Frontend (Gunakan pre-built public/build jika sudah tersedia agar cepat di VM disk lambat)
 echo ""
-echo "[STEP 2/4] Membangun aset frontend (NPM & Vite)..."
-if [ -f "package-lock.json" ]; then
-    npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+echo "[STEP 2/4] Memeriksa aset frontend (public/build)..."
+if [ -f "public/build/manifest.json" ] && [ "${1:-}" != "--build-assets" ]; then
+    echo "[INFO] Aset frontend pre-built (public/build/manifest.json) sudah siap digunakan."
 else
-    npm install --no-audit --no-fund
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+        echo "[ERROR] public/build/manifest.json belum ada dan Node.js/NPM belum terpasang."
+        exit 1
+    fi
+    echo "[INFO] Membangun aset frontend dengan Node.js ($(node -v))..."
+    if [ -f "package-lock.json" ]; then
+        npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+    else
+        npm install --no-audit --no-fund
+    fi
+    npm run build
 fi
-npm run build
 
 # 6. Persiapan File .env & APP_KEY
 echo ""
@@ -91,7 +94,6 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
     echo "[INFO] File .env berhasil dibuat dari .env.example."
 
-    # Jika socket LAMPP terdeteksi, aktifkan baris DB_SOCKET otomatis
     if [ -S "/opt/lampp/var/mysql/mysql.sock" ]; then
         sed -i 's|^# *DB_SOCKET=/opt/lampp/var/mysql/mysql.sock|DB_SOCKET=/opt/lampp/var/mysql/mysql.sock|' .env
         echo "[INFO] Socket MySQL LAMPP (/opt/lampp/var/mysql/mysql.sock) terdeteksi & diaktifkan di .env."

@@ -2,7 +2,7 @@
 set -e
 
 echo "=================================================================="
-echo "  UPDATE CEPAT NMS OLT ZTE (GIT PULL + BUILD + MIGRATE)"
+echo "  UPDATE CEPAT NMS OLT ZTE (GIT PULL + MIGRATE)"
 echo "=================================================================="
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,30 +31,22 @@ fi
 
 BRANCH="${1:-main}"
 
-echo "[1/6] Menarik pembaruan kode terbaru dari GitHub ($BRANCH)..."
+echo "[1/5] Menarik pembaruan kode terbaru dari GitHub ($BRANCH)..."
 git fetch origin "$BRANCH"
 git pull origin "$BRANCH"
 
-echo "[2/6] Memperbarui paket Composer..."
+echo "[2/5] Memperbarui paket Composer..."
 export COMPOSER_ALLOW_SUPERUSER=1
 $PHP "$COMPOSER" install --optimize-autoloader --no-dev --no-interaction
 
-echo "[3/6] Membangun ulang aset frontend (Vite)..."
-if [ -f "package-lock.json" ]; then
-    npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-else
-    npm install --no-audit --no-fund
-fi
-npm run build
-
-echo "[4/6] Menjalankan migrasi database..."
+echo "[3/5] Menjalankan migrasi database..."
 $PHP artisan migrate --force --no-interaction
 
-echo "[5/6] Membersihkan cache aplikasi..."
+echo "[4/5] Membersihkan cache aplikasi..."
 $PHP artisan optimize:clear
 chmod -R 775 storage bootstrap/cache
 
-echo "[6/6] Me-restart worker queue & poller Supervisor..."
+echo "[5/5] Me-restart worker queue & poller Supervisor..."
 $PHP artisan queue:restart || true
 if command -v supervisorctl >/dev/null 2>&1; then
     if [ "$(id -u)" -eq 0 ]; then
