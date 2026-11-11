@@ -23,6 +23,7 @@
             <button class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
             <span class="nav-divider"></span>
             <button class="nav-item" @click="open('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
+            <button class="nav-item" @click="open('whatsapp')"><i data-lucide="message-circle"></i>WhatsApp</button>
             <button class="nav-item" @click="open('telegram')"><i data-lucide="send"></i>Telegram</button>
             <button class="nav-item" x-show="db.permissions.api" @click="open('api')"><i data-lucide="code-xml"></i>API</button>
             <button class="nav-item" x-show="db.permissions.operate" @click="open('profiles')"><i data-lucide="layers-2"></i>Profil layanan</button>
@@ -106,7 +107,7 @@
         </div>
     </main>
 
-    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'wide-dialog':['degradation','onus','ports','audit','maps','staff','tags','provision','profiles'].includes(modal)}" aria-labelledby="modal-title">
+    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'wide-dialog':['degradation','onus','ports','audit','maps','staff','tags','provision','profiles','telegram','whatsapp'].includes(modal)}" aria-labelledby="modal-title">
         <div class="modal-header"><div><span class="eyebrow" x-text="selected?selected.name:'WORKSPACE · '+db.tenant.name"></span><h2 id="modal-title" x-text="modalTitle"></h2></div><button class="icon-button" @click="closeModal()" aria-label="Tutup dialog"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
             <div class="notice danger" x-ref="errorSummary" tabindex="-1" x-show="error" role="alert" x-text="error"></div>
@@ -130,10 +131,11 @@
             @include('partials.tags')
             @include('partials.ftth')
             @include('partials.backups')
+            @include('partials.notifications')
             <template x-if="modal==='upgrade'"><div><div class="plan-detail"><span class="quota-icon"><i data-lucide="zap"></i></span><h3>Paket <span x-text="db.tenant.plan_type"></span></h3><p class="muted">Terpakai <strong x-text="db.olts.length+'/'+db.tenant.olt_quota"></strong> OLT · aktif hingga <span x-text="expiry"></span></p></div><div class="notice">Kuota paket hanya dapat diubah oleh Super Admin. Hubungi pengelola platform untuk menambah kapasitas. Pembayaran dan aktivasi paket belum tersedia pada tahap ini.</div><div class="modal-actions"><button class="btn primary" @click="closeModal()">Mengerti</button></div></div></template>
             <template x-if="modal==='balance'"><div><span class="eyebrow">SALDO WORKSPACE</span><h3 class="balance-amount" x-text="money(db.tenant.balance)"></h3><p class="muted">Saldo data demo. Persetujuan top-up dikelola Super Admin.</p><div class="notice">Top-up dan riwayat transaksi tersedia setelah modul pembayaran diaktifkan.</div></div></template>
             @include('partials.api-tokens')
-            <template x-if="['vpn','affiliate','telegram'].includes(modal)"><div><div class="module-symbol"><i data-lucide="plug-zap"></i></div><h3 x-text="modalTitle+' belum terhubung'"></h3><p class="muted" x-text="moduleDescription"></p><div class="notice">Modul ini disiapkan dalam navigasi sesuai PRD. Aktivasi integrasi dilanjutkan pada tahap berikutnya.</div></div></template>
+            <template x-if="['vpn','affiliate'].includes(modal)"><div><div class="module-symbol"><i data-lucide="plug-zap"></i></div><h3 x-text="modalTitle+' belum terhubung'"></h3><p class="muted" x-text="moduleDescription"></p><div class="notice">Modul ini disiapkan dalam navigasi sesuai PRD. Aktivasi integrasi dilanjutkan pada tahap berikutnya.</div></div></template>
         </div>
     </dialog>
     @include('partials.onu-detail')

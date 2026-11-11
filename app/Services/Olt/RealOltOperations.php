@@ -5,7 +5,9 @@ namespace App\Services\Olt;
 use App\Models\Olt;
 use App\Models\Onu;
 use App\Models\OnuOpticalLog;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class RealOltOperations
 {
@@ -81,7 +83,9 @@ class RealOltOperations
 
     private function persistSnapshot(Olt $olt, array $snapshot, string $signature, bool $logOptics, string $scope = 'full'): void
     {
-        DB::transaction(function () use ($olt, $snapshot, $signature, $logOptics, $scope) {
+        $statusChanges = [];
+        $opticalChanges = [];
+        DB::transaction(function () use ($olt, $snapshot, $signature, $logOptics, $scope, &$statusChanges, &$opticalChanges) {
             $fresh = Olt::whereKey($olt->id)->lockForUpdate()->firstOrFail();
             if ($this->signature($fresh) !== $signature) {
                 throw new OltConnectionException('Konfigurasi OLT berubah selama polling. Ulangi Sync.', 'configuration_changed');
@@ -123,6 +127,7 @@ class RealOltOperations
                     if (! $onu) {
                         $onu = new Onu(['tenant_id' => $olt->tenant_id, 'sn' => $sample['sn'], 'name' => $sample['name']]);
                     }
+                    $wasExisting = $onu->exists;
                     // Refresh imported labels and SN placeholders while keeping local customer overrides.
                     $label = $sample['device_name'] ?? ($sample['name'] !== $sample['sn'] ? $sample['name'] : ($sample['device_description'] ?? null));
                     $description = $sample['device_description'] ?? null;
@@ -138,6 +143,7 @@ class RealOltOperations
                         $values['device_name'] = mb_substr($label, 0, 255);
                     }
                     $oldPhase = $onu->phase_state;
+                    $oldRx = $onu->rx_power !== null ? (float) $onu->rx_power : null;
                     if ($sample['phase_state'] === 'working' && in_array($scope,['full','inventory'],true)) {
                         $values['last_online_at'] = $stamp;
                     }
@@ -156,10 +162,16 @@ class RealOltOperations
                     ])->save();
                     if (in_array($scope,['full','inventory'],true) && $oldPhase !== $sample['phase_state']) {
                         DB::table('onu_status_logs')->insert(['onu_id'=>$onu->id,'phase_state'=>$sample['phase_state'],'previous_state'=>$oldPhase,'source'=>'real','observed_at'=>$stamp]);
+                        if ($wasExisting && $oldPhase !== null) {
+                            $statusChanges[] = ['onu' => $onu, 'port' => $port, 'old_phase' => $oldPhase, 'new_phase' => $sample['phase_state']];
+                        }
                     }
                     if ($sampleOptics) {
                         $opticalSamples++;
                         OnuOpticalLog::create(['onu_id' => $onu->id, 'rx_power' => $onu->rx_power, 'olt_rx_power' => $onu->olt_rx_power, 'calculated_at' => $stamp, 'observation_source' => 'real']);
+                        if ($wasExisting && $onu->rx_power !== null && $oldRx !== (float) $onu->rx_power) {
+                            $opticalChanges[] = ['onu' => $onu, 'port' => $port, 'old_rx' => $oldRx, 'new_rx' => (float) $onu->rx_power];
+                        }
                     }
                 }
             }
@@ -176,6 +188,12 @@ class RealOltOperations
             elseif ($scope === 'optics' && (!$yotc || $opticalSamples > 0)) $updates['optical_observed_at']=$stamp;
             $fresh->update($updates);
         });
+        if ($statusChanges || $opticalChanges) {
+            try {
+                app(NotificationService::class)->dispatchBatch($olt, $statusChanges, $opticalChanges);
+            } catch (Throwable) {
+            }
+        }
     }
 
     public function view(Olt $olt): array

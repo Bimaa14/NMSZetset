@@ -5,7 +5,7 @@ import {onuDetailModule} from './onu-detail';
 import Alpine from 'alpinejs';
 import {provisioningModule} from './provisioning';
 import {workspaceModules} from './workspace-modules';
-import { AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2 } from 'lucide';
+import { AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle } from 'lucide';
 import { createIcons, Server, Sun, Moon, Monitor, ChevronDown, LogOut, LayoutDashboard, CircleUserRound, Send, CodeXml, Tags, ShieldCheck, Wallet, UsersRound, ContactRound, ScrollText, ChevronRight, Network, Search, SearchX, Layers2, Zap, ArrowUpRight, ServerCog, Cpu, RadioTower, Unplug, Activity, ArrowRight, Map as MapIcon, Plus, MapPin, Info, Pencil, Terminal, EthernetPort, GitFork, Eye, RefreshCw, Router, Trash2, LockKeyhole, ServerOff, X, Thermometer, Clock3, CornerDownLeft, Copy, PlugZap, CircleCheck, MoreHorizontal } from 'lucide';
 import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
@@ -17,7 +17,7 @@ const refreshIcons = () => {
     cancelAnimationFrame(iconFrame);
     iconFrame = requestAnimationFrame(() => {
         if (!document.querySelector(pendingIconSelector)) return;
-        createIcons({ icons: {...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2}, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
+        createIcons({ icons: {...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle}, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
         // Lucide copies this marker onto its output. Consume it so later renders
         // leave existing SVGs attached, including between pointer down and up.
         document.querySelectorAll('svg[data-lucide]').forEach(icon => icon.removeAttribute('data-lucide'));
@@ -41,7 +41,7 @@ Alpine.data('dashboard', () => Object.defineProperties({
     onuPage:1,onuPageSize:50,onuSort: 'name', onuSortDirection: 1, inspectedOnu: null, onuStatus: 'all', pendingAction: null, tagOnu: null, onuTagIds: [],
     tagForm: { id: null, tag_name: '', color_hex: '#60a5fa' }, staffForm: null,
     audit: { data: [], current_page: 1, last_page: 1, total: 0 }, auditQuery: '', auditAction: '', auditFrom: '', auditTo: '', auditLoading: false, auditRequest: 0,
-    validationErrors: {}, rebootTimer: null, pollBusy: false, liveTimer:null,liveAbort:null,lastDashboardRefresh:Date.now(),liveAbort:null,lastDashboardRefresh:Date.now(), liveError:'', manualOperations:{}, detailOperation:null, onuPort:'all',onuOlt:'all', onuHistory:null, historyLoading:false,onuNameDraft:'',onuLocationDraft:{latitude:null,longitude:null},
+    validationErrors: {}, rebootTimer: null, pollBusy: false, liveTimer:null,liveAbort:null,lastDashboardRefresh:Date.now(), liveError:'', manualOperations:{}, detailOperation:null, onuPort:'all',onuOlt:'all', onuHistory:null, historyLoading:false,onuNameDraft:'',onuLocationDraft:{latitude:null,longitude:null},
     roleNames: { isp_owner: 'ISP Owner', noc: 'NOC', cs: 'CS', teknisi: 'Teknisi' },
     init() {
         try { this.theme = localStorage.getItem('nms-theme') || 'light'; } catch {}
@@ -116,7 +116,7 @@ Alpine.data('dashboard', () => Object.defineProperties({
         if (this.sort === 'onu') result.sort((a, b) => b.onus_count - a.onus_count);
         return result;
     },
-    get modalTitle() { if(this.modal==='equipment')return 'Card / Slot semua OLT';if(this.modal==='onus'&&!this.selected)return 'ONU semua OLT';if(this.modal==='ports')return 'Port '+this.ponLabel(); return ({ profiles: 'Profil layanan', provision: 'Pasang ONU', profile: 'Profil Anda', telegram: 'Telegram', api: 'Open API', tags: 'Tags pelanggan', vpn: 'VPN', balance: 'Saldo', affiliate: 'Affiliate', staff: 'Staff workspace', audit: 'Audit aktivitas', degradation: 'Redaman Memburuk', maps: 'FTTH Maps', backups:'Backup konfigurasi', upgrade: 'Upgrade paket', add: 'Tambah OLT', edit: 'Edit OLT', delete: 'Hapus perangkat OLT', info: 'Informasi OLT', view: 'Detail sistem OLT', onus: 'Daftar ONU', cli: 'Web CLI' })[this.modal] || ''; },
+    get modalTitle() { if(this.modal==='equipment')return 'Card / Slot semua OLT';if(this.modal==='onus'&&!this.selected)return 'ONU semua OLT';if(this.modal==='ports')return 'Port '+this.ponLabel(); return ({ profiles: 'Profil layanan', provision: 'Pasang ONU', profile: 'Profil Anda', telegram: 'Notifikasi Telegram & WhatsApp', whatsapp: 'Notifikasi WhatsApp & Telegram', api: 'Open API', tags: 'Tags pelanggan', vpn: 'VPN', balance: 'Saldo', affiliate: 'Affiliate', staff: 'Staff workspace', audit: 'Audit aktivitas', degradation: 'Redaman Memburuk', maps: 'FTTH Maps', backups:'Backup konfigurasi', upgrade: 'Upgrade paket', add: 'Tambah OLT', edit: 'Edit OLT', delete: 'Hapus perangkat OLT', info: 'Informasi OLT', view: 'Detail sistem OLT', onus: 'Daftar ONU', cli: 'Web CLI' })[this.modal] || ''; },
     get moduleDescription() { return ({ telegram: 'Notifikasi gangguan dan redaman optik untuk NOC serta teknisi lapangan.', vpn: 'Koneksi privat untuk menghubungkan jaringan tenant ke platform NMS.', affiliate: 'Program referensi ISP dan pencatatan komisi langganan.' })[this.modal]; },
     oltName(id) { return this.db.olts.find(o => o.id === id)?.name || '—'; },
     traffic(onu) { if(onu.download_bps==null || onu.upload_bps==null || !onu.traffic_observed_at || Date.now()-new Date(onu.traffic_observed_at).getTime()>180000)return '\u2014 / \u2014';return '\u2193 '+(onu.download_bps/1000000).toFixed(2)+' / \u2191 '+(onu.upload_bps/1000000).toFixed(2)+' Mbps'; },

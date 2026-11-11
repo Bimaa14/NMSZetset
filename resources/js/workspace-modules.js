@@ -30,16 +30,31 @@ export function workspaceModules(){return {
     backups:[],restoreBackupId:null,restoreQuery:'',restoreRows:[],restoreOnuId:'',restorePlan:null,restoreBusy:false,columnsOpen:false,
     apiInfo:{tokens:[],base_url:'',documentation_url:''},tokenForm:{name:'',days:30,scope:'read'},newToken:'',
     profileForm:{name:'',email:'',current_password:'',password:'',password_confirmation:''},
+    notificationTab:'whatsapp',
+    notificationMeta:{has_telegram_bot_token:false,has_whatsapp_api_key:false},
+    notificationLogs:[],
+    notificationForm:{telegram_enabled:false,telegram_bot_token:'',telegram_chat_id:'',telegram_thread_id:'',whatsapp_enabled:false,whatsapp_provider:'baileys',whatsapp_endpoint_url:'http://127.0.0.1:3001/send-message',whatsapp_api_key:'',whatsapp_session_id:'default',whatsapp_recipients:'',notify_on_los:true,notify_on_dying_gasp:true,notify_on_recovery:true,notify_on_bad_rx:true,bad_rx_threshold:-27,cooldown_minutes:15},
     ftth:{nodes:[],assignments:[]},nodeForm:null,mapOlt:'all',assignmentForm:{node_id:'',onu_id:'',port_number:1},
     onModuleOpen(type){
         if(['profiles','provision'].includes(type))this.loadServiceProfiles();
         if(type==='provision'){this.provisionPlan=null;this.discovery={onus:[],ports:[],registered:[]};this.provisionForm={profile_id:'',frame:1,slot:1,port:1,onu_index:1,sn:'',name:'',pppoe_user:'',pppoe_password:''};}
         if(type==='backups'){this.restoreBackupId=null;this.restorePlan=null;this.restoreRows=[];this.restoreOnuId='';this.loadBackups();}
         if(type==='api')this.loadApiTokens();
+        if(['telegram','whatsapp'].includes(type)){this.notificationTab=type;this.loadNotifications();}
         if(type==='profile')this.profileForm={name:this.db.user.name,email:this.db.user.email,current_password:'',password:'',password_confirmation:''};
         if(type==='maps'){this.nodeForm=null;this.loadFtth();}
     },
-    onModuleClose(){this.provisionForm.pppoe_password='';this.provisionPlan=null;this.newToken='';this.profileForm.current_password='';this.profileForm.password='';this.profileForm.password_confirmation='';clearMap();},
+    onModuleClose(){this.provisionForm.pppoe_password='';this.provisionPlan=null;this.newToken='';this.profileForm.current_password='';this.profileForm.password='';this.profileForm.password_confirmation='';this.notificationForm.telegram_bot_token='';this.notificationForm.whatsapp_api_key='';clearMap();},
+    applyNotificationPayload(data){
+        if(data.settings){
+            this.notificationMeta={has_telegram_bot_token:!!data.settings.has_telegram_bot_token,has_whatsapp_api_key:!!data.settings.has_whatsapp_api_key};
+            this.notificationForm={...this.notificationForm,...data.settings,telegram_bot_token:'',whatsapp_api_key:''};
+        }
+        if(data.logs)this.notificationLogs=data.logs;
+    },
+    async loadNotifications(){try{const data=await this.request('/notifications/settings');this.applyNotificationPayload(data);}catch(e){this.showError(e);}},
+    async saveNotifications(){if(this.busy)return;this.busy=true;this.error='';this.validationErrors={};try{const data=await this.request('/notifications/settings','PUT',this.notificationForm);this.applyNotificationPayload(data);this.notify(data.message);}catch(e){this.showError(e);}finally{this.busy=false;}},
+    async testNotification(channel){if(this.busy)return;this.busy=true;this.error='';this.validationErrors={};try{const data=await this.request('/notifications/test','POST',{...this.notificationForm,channel});if(data.logs)this.notificationLogs=data.logs;this.notify(data.message);}catch(e){this.showError(e);try{await this.loadNotifications();}catch{}}finally{this.busy=false;}},
     columnVisible(key){return (key!=='traffic'||this.onuTrafficAvailable())&&(this.db.user.preferences?.onu_columns||['status','rx','last_online','serial','traffic']).includes(key);},
     async toggleColumn(key){const old=this.db.user.preferences||{};const columns=old.onu_columns||['status','rx','last_online','serial','traffic'];const next=columns.includes(key)?columns.filter(k=>k!==key):[...columns,key];this.db.user.preferences={...old,onu_columns:next};try{await this.request('/preferences','PUT',{onu_columns:next});}catch(e){this.db.user.preferences=old;this.showError(e);}},
     async exportOnus(){let allRows;try{allRows=await this.allDirectoryRows(this.directoryParams());}catch(e){this.showError(e);return;}const safe=value=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};const rows=[['Nama','OLT','Interface','Status','SN','RX dBm','PPPoE','VLAN'],...allRows.map(o=>[o.name,this.oltName(o.olt_id),o.interface,o.phase_state,o.sn,o.rx_power,o.pppoe_user,o.vlan_id])];const url=URL.createObjectURL(new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8;'}));const link=document.createElement('a');link.href=url;link.download='onu-nms.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},

@@ -44,6 +44,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/api-tokens',[\App\Http\Controllers\ApiTokenController::class,'index']);
     Route::post('/api-tokens',[\App\Http\Controllers\ApiTokenController::class,'store']);
     Route::delete('/api-tokens/{id}',[\App\Http\Controllers\ApiTokenController::class,'destroy']);
+    Route::get('/notifications/settings',[\App\Http\Controllers\NotificationController::class,'index']);
+    Route::put('/notifications/settings',[\App\Http\Controllers\NotificationController::class,'update'])->middleware('throttle:20,1');
+    Route::post('/notifications/test',[\App\Http\Controllers\NotificationController::class,'test'])->middleware('throttle:10,1');
     Route::view('/api/docs','api-docs');
     Route::get('/dashboard/activity', [DashboardController::class, 'activity'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
     Route::get('/dashboard/data', [DashboardController::class, 'data'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
