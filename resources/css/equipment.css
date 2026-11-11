@@ -22,10 +22,17 @@
     background-attachment: fixed;
 }
 
-/* Header & Sidebar Depth */
+/* Header & Sidebar Depth (Note: avoid backdrop-filter on .top-row because .brand is position:fixed inside it) */
 .top-row {
-    backdrop-filter: blur(12px);
-    background: color-mix(in srgb, var(--header) 86%, transparent);
+    background: var(--header);
+    box-shadow: 0 1px 0 var(--line), 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+.brand b {
+    background: linear-gradient(135deg, #10b981, #38bdf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent !important;
+    font-weight: 800;
 }
 .brand-mark {
     background: linear-gradient(135deg, #10b981, #0ea5e9) !important;

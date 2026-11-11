@@ -3,9 +3,9 @@
 @section('body')
 <main class="login-shell">
     <div class="login-card">
-        <div class="brand-mark"><i data-lucide="server"></i></div>
-        <p class="eyebrow">NETWORK MANAGEMENT SYSTEM</p>
-        <h1>NMS OLT ZTE</h1>
+        <div class="brand-mark"><i data-lucide="waypoints"></i></div>
+        <p class="eyebrow">OPTICAL NETWORK SYSTEM</p>
+        <h1>LUMINA NMS</h1>
         <p class="muted">Masuk untuk mengelola jaringan Anda.</p>
         @if($errors->any()) <div class="notice danger" role="alert">{{ $errors->first() }}</div> @endif
         <form action="/login" method="post" class="form-stack">

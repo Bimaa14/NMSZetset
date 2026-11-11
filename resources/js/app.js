@@ -5,7 +5,7 @@ import {onuDetailModule} from './onu-detail';
 import Alpine from 'alpinejs';
 import {provisioningModule} from './provisioning';
 import {workspaceModules} from './workspace-modules';
-import { AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle } from 'lucide';
+import { AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle, Waypoints } from 'lucide';
 import { createIcons, Server, Sun, Moon, Monitor, ChevronDown, LogOut, LayoutDashboard, CircleUserRound, Send, CodeXml, Tags, ShieldCheck, Wallet, UsersRound, ContactRound, ScrollText, ChevronRight, Network, Search, SearchX, Layers2, Zap, ArrowUpRight, ServerCog, Cpu, RadioTower, Unplug, Activity, ArrowRight, Map as MapIcon, Plus, MapPin, Info, Pencil, Terminal, EthernetPort, GitFork, Eye, RefreshCw, Router, Trash2, LockKeyhole, ServerOff, X, Thermometer, Clock3, CornerDownLeft, Copy, PlugZap, CircleCheck, MoreHorizontal } from 'lucide';
 import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
@@ -17,7 +17,7 @@ const refreshIcons = () => {
     cancelAnimationFrame(iconFrame);
     iconFrame = requestAnimationFrame(() => {
         if (!document.querySelector(pendingIconSelector)) return;
-        createIcons({ icons: {...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle}, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
+        createIcons({ icons: {...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle, Waypoints}, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
         // Lucide copies this marker onto its output. Consume it so later renders
         // leave existing SVGs attached, including between pointer down and up.
         document.querySelectorAll('svg[data-lucide]').forEach(icon => icon.removeAttribute('data-lucide'));

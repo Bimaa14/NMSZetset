@@ -4,7 +4,7 @@
     <a class="skip-link" href="#main">Lewati ke konten</a>
     <header class="site-header">
         <div class="top-row">
-            <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark"><i data-lucide="server"></i></span><span>NMS OLT <b>ZTE</b><small>NETWORK MANAGEMENT SYSTEM</small></span></a>
+            <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark"><i data-lucide="waypoints"></i></span><span>LUMINA <b>NMS</b><small>OPTICAL NETWORK SYSTEM</small></span></a>
             <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong>Overview</strong></div>
             <div class="header-right"><span class="refresh-state" :class="{'is-refreshing':pollBusy}"><span class="dot" :class="runtimeHealthy?'green':'amber'"></span><span x-text="pollBusy?'Memperbarui…':runtimeHealthy?'Monitoring aktif':'Monitor tertunda'"></span></span>
                 <div class="theme-switch" role="group" aria-label="Tema tampilan">
@@ -112,7 +112,7 @@
             <div class="quota-details"><div><span class="muted small">Kapasitas paket</span><strong><span x-text="db.tenant.olt_quota"></span> OLT</strong></div><div><span class="muted small">Aktif hingga</span><strong x-text="expiry"></strong></div><div class="quota-usage"><div><span class="muted small">Kuota terpakai</span><strong><span x-text="db.olts.length"></span><span class="muted">/<span x-text="db.tenant.olt_quota"></span></span></strong></div><div class="progress-track"><span :style="'width:'+Math.min(100,db.olts.length/db.tenant.olt_quota*100)+'%'"></span></div></div></div>
             <button class="btn upgrade" @click="open('upgrade')" x-show="db.permissions.subscription"><i data-lucide="zap"></i>Upgrade<i data-lucide="arrow-up-right"></i></button>
         </section>
-        <footer class="page-footer"><span><strong>NMS OLT ZTE</strong> <span class="muted">/</span> Network Management System</span><span>Internal & SaaS Ready<span class="footer-version">v1.0</span></span></footer>
+        <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span>Internal & SaaS Ready<span class="footer-version">v1.0</span></span></footer>
         </div>
     </main>
 
