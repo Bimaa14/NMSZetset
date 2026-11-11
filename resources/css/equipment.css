@@ -1,13 +1,513 @@
-.equipment-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-button.equipment-stat { text-align: left; color: var(--text); font: inherit; cursor: pointer; }
-button.equipment-stat:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+/* ==========================================================================
+   NOC Visual Polish: Ambient Aurora, KPI Accents, Live Radar & Hardware Rack
+   ========================================================================== */
+
+/* 1. Ambient Aurora & Subtle NOC Dot-Grid Backdrop */
+:root[data-theme=dark] body {
+    background-color: #0f1216;
+    background-image:
+        radial-gradient(ellipse 80% 420px at 55% -80px, rgba(52, 211, 153, 0.10), rgba(56, 189, 248, 0.05) 45%, transparent 75%),
+        radial-gradient(circle at 88% 18%, rgba(139, 92, 246, 0.05), transparent 40%),
+        radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 24px 24px;
+    background-attachment: fixed;
+}
+
+:root:not([data-theme=dark]) body,
+:root[data-theme=light] body {
+    background-image:
+        radial-gradient(ellipse 80% 380px at 55% -90px, rgba(16, 185, 129, 0.07), rgba(14, 165, 233, 0.04) 45%, transparent 75%),
+        radial-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+    background-size: 100% 100%, 24px 24px;
+    background-attachment: fixed;
+}
+
+/* Header & Sidebar Depth */
+.top-row {
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--header) 86%, transparent);
+}
+.brand-mark {
+    background: linear-gradient(135deg, #10b981, #0ea5e9) !important;
+    color: #061814 !important;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important;
+}
+.title-dot {
+    display: inline-block !important;
+    width: 8px;
+    height: 8px;
+    margin-left: 10px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 12px #10b981;
+}
+.lan-badge {
+    border-color: color-mix(in srgb, var(--cyan) 32%, var(--line)) !important;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--cyan) 10%, var(--panel)), var(--panel)) !important;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.08);
+}
+.nav-item.active {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--cyan) 16%, transparent), color-mix(in srgb, var(--cyan) 4%, transparent)) !important;
+    border-left: 3px solid var(--cyan);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* 2. Live Radar Pulse on Status Dots */
+.dot.purple-dot {
+    background: var(--purple);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--purple) 50%, transparent);
+}
+.refresh-state .dot.green,
+.status-badge.online .dot.green,
+.nav-tenant .dot.green,
+.equipment-stat .dot.green {
+    position: relative;
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
+}
+.refresh-state .dot.green::after,
+.status-badge.online .dot.green::after,
+.nav-tenant .dot.green::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid #10b981;
+    opacity: 0;
+    animation: noc-radar-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes noc-radar-pulse {
+    0% { transform: scale(0.65); opacity: 0.85; }
+    100% { transform: scale(2.35); opacity: 0; }
+}
+
+/* 3. 5 KPI Cards (Ringkasan Equipment) with Top Accent Bars & Ambient Glow */
+.equipment-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+button.equipment-stat {
+    text-align: left;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    position: relative;
+    isolation: isolate;
+    transition: transform 200ms cubic-bezier(.22, 1, .36, 1), border-color 200ms ease, box-shadow 200ms ease !important;
+}
+button.equipment-stat:hover {
+    transform: translateY(-3px);
+}
+button.equipment-stat:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+}
+.equipment-stat::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+    opacity: 0.9;
+}
+.equipment-stat::after {
+    content: '';
+    position: absolute;
+    top: -28px;
+    right: -28px;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.55;
+    transition: opacity 200ms ease, transform 200ms ease;
+}
+.equipment-stat:hover::after {
+    opacity: 0.9;
+    transform: scale(1.12);
+}
+
+/* KPI 1: Total OLT (Sky / Cyan) */
+.stat-card-olt::before { background: linear-gradient(90deg, #38bdf8, #06b6d4); }
+.stat-card-olt::after { background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 70%); }
+.stat-card-olt > .stat-symbol {
+    color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.12) !important;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+}
+.stat-card-olt:hover { border-color: rgba(56, 189, 248, 0.45) !important; box-shadow: 0 10px 28px -8px rgba(56, 189, 248, 0.18) !important; }
+
+/* KPI 2: Card / Slot (Violet / Purple) */
+.stat-card-slot::before { background: linear-gradient(90deg, #a78bfa, #8b5cf6); }
+.stat-card-slot::after { background: radial-gradient(circle, rgba(167, 139, 250, 0.18), transparent 70%); }
+.stat-card-slot > .stat-symbol {
+    color: #a78bfa !important;
+    background: rgba(167, 139, 250, 0.12) !important;
+    border: 1px solid rgba(167, 139, 250, 0.25);
+}
+.stat-card-slot:hover { border-color: rgba(167, 139, 250, 0.45) !important; box-shadow: 0 10px 28px -8px rgba(167, 139, 250, 0.18) !important; }
+
+/* KPI 3: ONU Online (Emerald Green) */
+.stat-card-online::before { background: linear-gradient(90deg, #10b981, #34d399); }
+.stat-card-online::after { background: radial-gradient(circle, rgba(16, 185, 129, 0.20), transparent 70%); }
+.stat-card-online > .stat-symbol {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.14) !important;
+    border: 1px solid rgba(16, 185, 129, 0.28);
+}
+.stat-card-online:hover { border-color: rgba(16, 185, 129, 0.48) !important; box-shadow: 0 10px 28px -8px rgba(16, 185, 129, 0.22) !important; }
+
+/* KPI 4: ONU Offline (Amber Gold) */
+.stat-card-offline::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.stat-card-offline::after { background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%); }
+.stat-card-offline > .stat-symbol {
+    color: var(--amber) !important;
+    background: color-mix(in srgb, var(--amber) 14%, var(--panel)) !important;
+    border: 1px solid color-mix(in srgb, var(--amber) 28%, transparent);
+}
+.stat-card-offline:hover { border-color: color-mix(in srgb, var(--amber) 48%, var(--line)) !important; box-shadow: 0 10px 28px -8px rgba(245, 158, 11, 0.18) !important; }
+
+/* KPI 5: ONU LOSS (Crimson Alert) */
+.equipment-stat-loss { animation-delay: 200ms; }
+.stat-card-loss::before { background: linear-gradient(90deg, #ef4444, #f43f5e); }
+.stat-card-loss::after { background: radial-gradient(circle, rgba(244, 63, 94, 0.20), transparent 70%); }
 .equipment-stat-loss .stat-note svg { width: 12px; height: 12px; }
-.equipment-stat-loss > .stat-symbol { color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
-.equipment-stat:nth-child(5) { animation-delay: 200ms; }
+.equipment-stat-loss > .stat-symbol {
+    color: var(--red) !important;
+    background: color-mix(in srgb, var(--red) 13%, var(--panel)) !important;
+    border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
+}
+.stat-card-loss:hover { border-color: color-mix(in srgb, var(--red) 50%, var(--line)) !important; box-shadow: 0 10px 28px -8px rgba(244, 63, 94, 0.22) !important; }
+.stat-card-loss.has-loss-alert {
+    border-color: color-mix(in srgb, var(--red) 38%, var(--line));
+    box-shadow: 0 0 22px -6px rgba(244, 63, 94, 0.22);
+}
+
+/* Redaman Memburuk Banner */
+.degradation-bar {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 8%, var(--panel)), var(--panel) 55%) !important;
+    border-left: 3px solid var(--red) !important;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.degradation-bar:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -6px rgba(244, 63, 94, 0.18);
+}
+
+/* 4. OLT Cards: Top Status Strip, Mini Rack LED Bar, Glowing Progress & Semantic Actions */
+.olt-card {
+    position: relative;
+    overflow: hidden;
+}
+.olt-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #06b6d4);
+    opacity: 0.85;
+}
+.olt-card.olt-card-offline::before {
+    background: linear-gradient(90deg, #64748b, #94a3b8);
+    opacity: 0.55;
+}
+.olt-card.olt-card-error::before {
+    background: linear-gradient(90deg, #ef4444, #f59e0b);
+    opacity: 0.95;
+}
+.olt-card-online .device-icon {
+    color: var(--cyan) !important;
+    background: color-mix(in srgb, var(--cyan) 11%, var(--panel)) !important;
+    border-color: color-mix(in srgb, var(--cyan) 28%, var(--line)) !important;
+    box-shadow: 0 0 16px -4px color-mix(in srgb, var(--cyan) 35%, transparent);
+}
+
+/* Mini Hardware Rack Strip inside OLT Card */
+.olt-mini-rack {
+    margin: 0 22px 4px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.82));
+    border: 1px solid color-mix(in srgb, var(--line) 85%, #fff 6%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme=light] .olt-mini-rack {
+    background: linear-gradient(180deg, #1e293b, #0f172a);
+    border-color: #334155;
+}
+.mini-rack-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    padding-right: 6px;
+    border-right: 1px solid rgba(148, 163, 184, 0.25);
+    flex-shrink: 0;
+}
+.mini-rack-leds {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+.mini-port-led {
+    width: 8px;
+    height: 6px;
+    border-radius: 1.5px;
+    display: inline-block;
+    transition: transform 150ms ease;
+}
+.mini-port-led.led-on {
+    background: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.85);
+}
+.mini-port-led.led-warn {
+    background: #f59e0b;
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.65);
+}
+.mini-port-led.led-idle {
+    background: #334155;
+    border: 1px solid #475569;
+}
+.mini-rack-more {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #94a3b8;
+    margin-left: auto;
+}
+
+/* Glowing ONU Capacity Track */
+.onu-track {
+    height: 6px !important;
+    background: color-mix(in srgb, var(--line) 80%, transparent) !important;
+    overflow: hidden;
+}
+.onu-track > span {
+    background: linear-gradient(90deg, #10b981, #06b6d4) !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+
+/* Semantic Colored Card Action Buttons */
+.card-actions .action {
+    font-weight: 600;
+    transition: transform 150ms ease, filter 150ms ease, background-color 150ms ease, border-color 150ms ease !important;
+}
+.card-actions .action:hover {
+    transform: translateY(-1px);
+}
+.card-actions .action.view {
+    color: #38bdf8 !important;
+    background: rgba(56, 189, 248, 0.10) !important;
+    border-color: rgba(56, 189, 248, 0.26) !important;
+}
+.card-actions .action.port {
+    color: #a78bfa !important;
+    background: rgba(167, 139, 250, 0.10) !important;
+    border-color: rgba(167, 139, 250, 0.26) !important;
+}
+.card-actions .action.sync {
+    color: #fbbf24 !important;
+    background: rgba(245, 158, 11, 0.10) !important;
+    border-color: rgba(245, 158, 11, 0.26) !important;
+}
+.card-actions .action.onu {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.10) !important;
+    border-color: rgba(16, 185, 129, 0.26) !important;
+}
+.card-actions .action.delete {
+    color: #fb7185 !important;
+    background: rgba(244, 63, 94, 0.10) !important;
+    border-color: rgba(244, 63, 94, 0.26) !important;
+}
+:root[data-theme=light] .card-actions .action.view { color: #0284c7 !important; }
+:root[data-theme=light] .card-actions .action.port { color: #7c3aed !important; }
+:root[data-theme=light] .card-actions .action.sync { color: #b45309 !important; }
+:root[data-theme=light] .card-actions .action.onu { color: #059669 !important; }
+:root[data-theme=light] .card-actions .action.delete { color: #e11d48 !important; }
+
+/* 5. Interactive 19-Inch Hardware OLT Chassis Rack in View/Info/Port Modal */
+.olt-chassis-rack {
+    display: grid;
+    grid-template-columns: 22px 1fr 22px;
+    margin-bottom: 22px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid #334155;
+    box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+}
+.rack-ear {
+    background: linear-gradient(180deg, #334155, #1e293b);
+    border-right: 1px solid #475569;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+}
+.rack-ear:last-child {
+    border-right: 0;
+    border-left: 1px solid #475569;
+}
+.rack-screw {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #94a3b8, #334155);
+    border: 1px solid #0f172a;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.rack-body {
+    padding: 14px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.rack-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+.rack-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.rack-vendor {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.14);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+}
+.rack-brand strong {
+    font-size: 13px;
+    color: #f8fafc;
+    letter-spacing: -0.2px;
+}
+.rack-ip {
+    font-size: 11px;
+    color: #94a3b8;
+}
+.rack-sys-leds {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.sys-led {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: #94a3b8;
+    letter-spacing: 0.6px;
+}
+.led-bulb {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    background: #475569;
+}
+.led-bulb.green {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+.led-bulb.red {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+.led-bulb.pulse {
+    animation: led-blink 1.6s ease-in-out infinite;
+}
+@keyframes led-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+.rack-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+    gap: 7px;
+}
+.sfp-cage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 4px 6px;
+    border-radius: 6px;
+    background: #0b1120;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+.sfp-cage:hover {
+    transform: translateY(-2px);
+    border-color: #38bdf8;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+.sfp-cage.sfp-active {
+    border-color: rgba(16, 185, 129, 0.45);
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.12), #0b1120 80%);
+}
+.sfp-cage.sfp-warn {
+    border-color: rgba(245, 158, 11, 0.45);
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), #0b1120 80%);
+}
+.sfp-led {
+    width: 14px;
+    height: 4px;
+    border-radius: 2px;
+    background: #334155;
+}
+.sfp-active .sfp-led {
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+.sfp-warn .sfp-led {
+    background: #f59e0b;
+    box-shadow: 0 0 7px #f59e0b;
+}
+.sfp-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+.sfp-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #94a3b8;
+}
+
 @media (max-width: 1200px) {
     .equipment-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
     .equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .equipment-stat-loss { grid-column: 1 / -1; }
+    .olt-mini-rack { margin: 0 16px 4px; }
+    .rack-topbar { flex-direction: column; align-items: flex-start; }
 }
