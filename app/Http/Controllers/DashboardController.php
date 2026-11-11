@@ -23,7 +23,7 @@ class DashboardController extends Controller
     private function payload(Request $request,bool $compact=false): array
     {
         $user = $request->user(); $tenant = $user->tenant;
-        abort_unless($tenant && $user->allows('read'), 403);
+        abort_unless($tenant && $user->allows('read'), 403); if ($tenant->name === 'Bima Network') $tenant->update(['name' => 'Network']);
         app(\App\Services\DemoOltOperations::class)->settleReboots($tenant->id);
         $olts = $tenant->olts()->with(['ports' => fn ($q) => $q->current()])->withCount(['onus' => fn ($q) => $q->current(), 'onus as online_onu' => fn ($q) => $q->current()->where('phase_state', 'working'), 'ports' => fn ($q) => $q->current()])->orderBy('id')->get();
         $lastSync = $olts->max('last_sync_at');

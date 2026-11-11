@@ -12,7 +12,7 @@ class NmsSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
-            $tenant = Tenant::firstOrCreate(['name' => 'Bima Network'], ['plan_type' => 'Premium', 'olt_quota' => 22, 'balance' => 750000, 'expired_at' => '2026-10-28 23:59:59']);
+            $tenant = Tenant::firstOrCreate(['name' => 'Network'], ['plan_type' => 'Premium', 'olt_quota' => 22, 'balance' => 750000, 'expired_at' => '2026-10-28 23:59:59']);
             $password = Hash::make('NmsDemo2026!');
             foreach (['isp_owner' => 'Bima Pratama', 'noc' => 'Aditya · NOC', 'cs' => 'Nadia · Customer Support', 'teknisi' => 'Rizky · Teknisi'] as $role => $name) {
                 User::firstOrCreate(['email' => $role.'@bima.test'], ['tenant_id' => $tenant->id, 'name' => $name, 'role' => $role, 'password' => $password]);

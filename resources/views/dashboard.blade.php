@@ -43,8 +43,8 @@
 
     <main id="main" class="main-container">
         <div class="page-heading">
-            <div><div class="breadcrumb">Workspace <i data-lucide="chevron-right"></i> <span>Dashboard</span></div><h1>Dashboard Jaringan<span class="title-dot"></span></h1><p class="muted">Pantau konektivitas. Kelola perangkat. Jaga jaringan tetap optimal.</p></div>
-            <div class="workspace-status"><span class="lan-badge"><i data-lucide="network"></i> Jaringan lokal kantor</span><span class="muted small" x-show="db.demo"><span class="dot amber"></span> Lingkungan demo</span></div>
+            <div><div class="breadcrumb">Workspace <i data-lucide="chevron-right"></i> <span>Dashboard</span></div><h1>Dashboard Jaringan<span class="title-dot"></span></h1><p class="muted">Pusat kendali dan telemetri infrastruktur jaringan FTTH secara real-time.</p></div>
+            <div class="workspace-status"><span class="lan-badge"><i data-lucide="network"></i> Core Optical Network</span><span class="muted small" x-show="db.demo"><span class="dot amber"></span> Lingkungan demo</span></div>
         </div>
 
 
