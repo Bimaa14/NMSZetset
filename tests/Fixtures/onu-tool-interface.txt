@@ -1,0 +1,10 @@
+Building configuration...
+interface gpon-onu_1/1/1:1
+ name TEST-ONU
+ tcont 1 profile UP-1M
+ gemport 1 name internet tcont 1
+ gemport 1 traffic-limit downstream DOWN-1M
+ service-port 1 vport 1 user-vlan 97 vlan 97
+ service-port 1 description Internet pelanggan
+!
+end

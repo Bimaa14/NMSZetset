@@ -1,0 +1,82 @@
+<?php
+
+use App\Http\Controllers\{AuthController, DashboardController, OltController, OnuController, StaffController, TagController, AuditController};
+use Illuminate\Support\Facades\Route;
+
+Route::pattern('id', '[0-9]+');
+
+Route::view('/login', 'login')->name('login');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/demo/login', [AuthController::class, 'demo'])->middleware('throttle:20,1');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::middleware('auth')->group(function () {
+    Route::post('/backups/{id}/restore-preview',[\App\Http\Controllers\BackupRestoreController::class,'preview'])->middleware('throttle:10,1');
+    Route::get('/olts/{id}/traps',function(\Illuminate\Http\Request $r,int $id){
+        abort_unless($r->user()->allows('audit'),403);$olt=\App\Models\Olt::where('tenant_id',$r->user()->tenant_id)->findOrFail($id);
+        return \Illuminate\Support\Facades\DB::table('snmp_trap_events')->where('tenant_id',$olt->tenant_id)->where('olt_id',$olt->id)->orderByDesc('id')->paginate(50,['id','source_ip','trap_oid','received_at']);
+    });
+    Route::get('/onus/{id}/configuration-tool',[\App\Http\Controllers\OnuConfigurationToolController::class,'show'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::post('/onus/{id}/configuration-tool/refresh',[\App\Http\Controllers\OnuConfigurationToolController::class,'refresh'])->middleware([\App\Http\Middleware\ReleasePollingSession::class,'throttle:30,1']);
+    Route::post('/onus/{id}/configuration-tool/preview',[\App\Http\Controllers\OnuConfigurationToolController::class,'preview'])->middleware([\App\Http\Middleware\ReleasePollingSession::class,'throttle:20,1']);
+    Route::post('/onus/{id}/configuration-tool/apply',[\App\Http\Controllers\OnuConfigurationToolController::class,'apply'])->middleware([\App\Http\Middleware\ReleasePollingSession::class,'throttle:10,1']);
+
+    Route::get('/traffic/{kind}/{id}',[\App\Http\Controllers\TrafficController::class,'history'])->whereIn('kind',['onus','ports'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::post('/traffic/{kind}/{id}/live',[\App\Http\Controllers\TrafficController::class,'live'])->whereIn('kind',['onus','ports'])->middleware('throttle:120,1')->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::get('/service-profiles',[\App\Http\Controllers\ProvisioningController::class,'profiles']);
+    Route::post('/service-profiles',[\App\Http\Controllers\ProvisioningController::class,'saveProfile']);
+    Route::put('/service-profiles/{id}',[\App\Http\Controllers\ProvisioningController::class,'saveProfile']);
+    Route::delete('/service-profiles/{id}',[\App\Http\Controllers\ProvisioningController::class,'deleteProfile']);
+    Route::get('/olts/{id}/unconfigured',[\App\Http\Controllers\ProvisioningController::class,'discover'])->middleware('throttle:10,1');
+    Route::post('/olts/{id}/provision/preview',[\App\Http\Controllers\ProvisioningController::class,'preview'])->middleware('throttle:10,1');
+    Route::post('/olts/{id}/provision/apply',[\App\Http\Controllers\ProvisioningController::class,'apply'])->middleware('throttle:10,1');
+    Route::put('/preferences',[\App\Http\Controllers\WorkspaceSettingsController::class,'preferences']);
+    Route::get('/olts/{id}/backups',[\App\Http\Controllers\WorkspaceSettingsController::class,'backups']);
+    Route::get('/backups/{id}/download',[\App\Http\Controllers\WorkspaceSettingsController::class,'download']);
+    Route::put('/profile',[\App\Http\Controllers\ProfileController::class,'update'])->middleware('throttle:10,1');
+    Route::get('/ftth',[\App\Http\Controllers\FtthController::class,'index']);
+    Route::post('/ftth/nodes',[\App\Http\Controllers\FtthController::class,'save']);
+    Route::put('/ftth/nodes/{id}',[\App\Http\Controllers\FtthController::class,'save']);
+    Route::delete('/ftth/nodes/{id}',[\App\Http\Controllers\FtthController::class,'destroy']);
+    Route::post('/ftth/nodes/{id}/assign',[\App\Http\Controllers\FtthController::class,'assign']);
+    Route::delete('/ftth/onus/{id}/assignment',[\App\Http\Controllers\FtthController::class,'detach']);
+    Route::put('/ftth/onus/{id}/location',[\App\Http\Controllers\FtthController::class,'location']);
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api-tokens',[\App\Http\Controllers\ApiTokenController::class,'index']);
+    Route::post('/api-tokens',[\App\Http\Controllers\ApiTokenController::class,'store']);
+    Route::delete('/api-tokens/{id}',[\App\Http\Controllers\ApiTokenController::class,'destroy']);
+    Route::view('/api/docs','api-docs');
+    Route::get('/dashboard/activity', [DashboardController::class, 'activity'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::get('/dashboard/data', [DashboardController::class, 'data'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::get('/onus', [\App\Http\Controllers\RealtimeController::class, 'onus']);
+    Route::get('/onus/{id}/detail',[\App\Http\Controllers\OnuDetailController::class,'show'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::post('/onus/{id}/detail/refresh',[\App\Http\Controllers\OnuDetailController::class,'refresh'])->middleware('throttle:30,1')->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::post('/onus/{id}/detail/secret',[\App\Http\Controllers\OnuDetailController::class,'secret'])->middleware('throttle:10,1');
+    Route::post('/onus/{id}/detail/configure',[\App\Http\Controllers\OnuDetailController::class,'configure'])->middleware('throttle:10,1');
+    Route::put('/onus/{id}/name',[\App\Http\Controllers\OnuConfigurationController::class,'rename'])->middleware('throttle:20,1');
+    Route::put('/onus/{id}/admin',[\App\Http\Controllers\OnuConfigurationController::class,'admin'])->middleware('throttle:20,1');
+    Route::delete('/onus/{id}',[\App\Http\Controllers\OnuConfigurationController::class,'destroy'])->middleware('throttle:20,1');
+    Route::get('/onus/{id}/history', [\App\Http\Controllers\RealtimeController::class, 'history']);
+    Route::post('/olts/{id}/operations', [\App\Http\Controllers\RealtimeController::class, 'start'])->middleware('throttle:30,1');
+    Route::get('/olts/{id}/operations', [\App\Http\Controllers\RealtimeController::class, 'status'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
+    Route::delete('/olts/{id}/operations/{operationId}', [\App\Http\Controllers\RealtimeController::class, 'cancel'])->whereNumber('operationId');
+    Route::put('/olts/{id}/monitoring', [\App\Http\Controllers\RealtimeController::class, 'monitoring']);
+    Route::get('/olts/{id}/names', [\App\Http\Controllers\RealtimeController::class, 'names']);
+    Route::get('/olts/{id}/capabilities', [\App\Http\Controllers\RealtimeController::class, 'capabilities']);
+    Route::post('/olts', [OltController::class, 'store']);
+    Route::post('/olts/test-connection', [OltController::class, 'testConnection'])->middleware('throttle:10,1');
+    Route::post('/olts/{id}/refresh', [OltController::class, 'refresh'])->middleware('throttle:10,1');
+    Route::put('/olts/{id}', [OltController::class, 'update']);
+    Route::delete('/olts/{id}', [OltController::class, 'destroy']);
+    Route::post('/olts/{id}/sync', [OltController::class, 'sync'])->middleware('throttle:30,1');
+    Route::post('/olts/{id}/cli', [OltController::class, 'cli'])->middleware('throttle:60,1');
+    Route::get('/olts/{id}/settings', [OltController::class, 'settings']);
+    Route::post('/onus/{id}/reboot', [OnuController::class, 'reboot'])->middleware('throttle:20,1');
+    Route::put('/onus/{id}/tags', [OnuController::class, 'tags']);
+    Route::post('/tags', [TagController::class, 'store']);
+    Route::put('/tags/{id}', [TagController::class, 'update']);
+    Route::delete('/tags/{id}', [TagController::class, 'destroy']);
+    Route::post('/staff', [StaffController::class, 'store']);
+    Route::put('/staff/{id}', [StaffController::class, 'update']);
+    Route::delete('/staff/{id}', [StaffController::class, 'destroy']);
+    Route::get('/audit', [AuditController::class, 'index']);
+});

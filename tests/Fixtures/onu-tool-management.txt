@@ -1,0 +1,13 @@
+pon-onu-mng gpon-onu_1/1/1:1
+ service internet gemport 1 iphost 1 cos 0 vlan 97
+ vlan port eth_0/1 mode tag vlan 97 pri 0
+ vlan port wifi_0/1 mode hybrid def-vlan 97 def-pri 1
+ vlan gemport 1 mode transparent
+ wan-ip 1 mode pppoe username test-user password tool-secret-only vlan-profile STARZO
+NE host 1
+ wan-ip 1 ping-response enable traceroute-response disable
+ tr069-mgmt 1 tag pri 0 vlan 97
+ tr069-mgmt 1 acs https://acs.example.com validate basic username acs-user password acs-secret-only
+ tr069-mgmt 1 state unlock
+ security-mgmt 211 state enable mode forward ingress-type lan protocol web
+!

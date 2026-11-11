@@ -1,0 +1,13 @@
+.equipment-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+button.equipment-stat { text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+button.equipment-stat:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.equipment-stat-loss .stat-note svg { width: 12px; height: 12px; }
+.equipment-stat-loss > .stat-symbol { color: var(--red); background: color-mix(in srgb, var(--red) 8%, var(--panel)); }
+.equipment-stat:nth-child(5) { animation-delay: 200ms; }
+@media (max-width: 1200px) {
+    .equipment-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .equipment-stat-loss { grid-column: 1 / -1; }
+}

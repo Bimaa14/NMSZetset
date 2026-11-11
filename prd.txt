@@ -1,0 +1,264 @@
+================================================================================
+MASTER PRODUCT REQUIREMENTS DOCUMENT (PRD) & API SPECIFICATION
+Nama Produk : ZTE OLT Network Management System (NMS) - Internal & SaaS Ready
+Target OLT  : ZTE ZXAN Series (C300, C320, C6xx)[cite: 1]
+Versi       : 3.0 (Full Specification + Open API for WhatsApp AI)
+Tanggal     : 15 Oktober 2026
+================================================================================
+
+BAB 1: LATAR BELAKANG & TUJUAN SISTEM
+--------------------------------------------------------------------------------
+1.1 Latar Belakang
+    Operasional jaringan FTTH membutuhkan sistem pemantauan dan manajemen terpusat 
+    untuk puluhan perangkat OLT ZTE (seperti C300 dan C320)[cite: 1]. Saat ini, 
+    tim menggunakan platform pihak ketiga yang dihubungkan ke sistem AI WhatsApp 
+    internal melalui fitur Open API[cite: 1, 2]. Untuk efisiensi biaya, keamanan 
+    jaringan lokal (IP Private), dan fleksibilitas kustomisasi, dibutuhkan sistem 
+    NMS mandiri yang dibangun di infrastruktur sendiri.
+
+1.2 Tujuan Pengembangan
+    - Fase 1 (Internal Kantor): Menjalankan NMS di jaringan lokal kantor menggunakan 
+      IP Private tanpa perlu menyewa IP Public atau port forwarding per OLT.
+    - Integrasi AI WhatsApp: Menyediakan API Base URL dan manajemen Bearer Token 
+      agar bot AI WhatsApp buatan tim programmer dapat menarik data ONU, cek 
+      redaman, dan mengeksekusi perintah secara otomatis.
+    - Fase 2 (Komersialisasi SaaS): Menyediakan fitur multi-tenant, kuota OLT, 
+      sistem Saldo, Affiliate, VPN, dan tombol Upgrade paket langganan untuk 
+      disewakan ke ISP lain[cite: 1].
+
+
+BAB 2: HAK AKSES PENGGUNA (MULTI-TENANT RBAC)
+--------------------------------------------------------------------------------
+Sistem menggunakan arsitektur Multi-Tenant dengan pembagian role sebagai berikut:
+
+1. Super Admin (Platform Owner)
+   - Mengelola seluruh akun penyewa (Tenant/ISP), paket langganan, batas kuota 
+     OLT, serta persetujuan top-up Saldo[cite: 1].
+
+2. ISP Owner (Master Tenant - Contoh: "ISP Owner • Premium")[cite: 1]
+   - Memiliki akses penuh pada lingkup jaringannya sendiri[cite: 1].
+   - Mengelola perangkat OLT (Tambah, Edit, Hapus, Sync, Web CLI)[cite: 1].
+   - Mengelola akun Staff dan memantau riwayat aktivitas pada menu Audit[cite: 1].
+   - Membuat, mengatur durasi, dan mencabut token pada halaman API Token 
+     Management untuk integrasi eksternal (AI WhatsApp / Billing)[cite: 2].
+
+3. NOC (Network Operation Center)
+   - Mengelola operasional harian: klik tombol View, Port, Sync, dan ONU pada 
+     kartu OLT[cite: 1].
+   - Melakukan provisioning ONU baru, reboot, ganti konfigurasi PPPoE/VLAN, 
+     akses terminal Web CLI (>_), serta mengelola titik FTTH Maps dan Tags[cite: 1].
+
+4. Customer Support (CS)
+   - Akses Read-Only untuk mencari pelanggan melalui kolom pencarian global 
+     ("Cari ONU berdasarkan nama, SN, deskripsi, atau tag...")[cite: 1].
+   - Melihat status koneksi ONU, nilai redaman optik, serta daftar peringatan 
+     Redaman Memburuk[cite: 1].
+
+5. Teknisi Lapangan
+   - Akses antarmuka mobile dan notifikasi Telegram untuk melihat lokasi ODP/ONU 
+     di FTTH Maps serta memeriksa nilai redaman saat instalasi/perbaikan[cite: 1].
+
+
+BAB 3: SPESIFIKASI FITUR WEB DASHBOARD
+--------------------------------------------------------------------------------
+3.1 Navigasi Utama (Top Navbar)
+    - Pengaturan Tema: Mode Terang (Light), Mode Gelap (Dark), dan Sistem[cite: 1].
+    - Menu Operasional: Profil, Telegram, <> API, Tags, Staff, dan Audit[cite: 1].
+    - Menu Ekosistem SaaS (Aktif saat mode Subscription): VPN, Saldo, Affiliate, 
+      serta informasi kuota OLT (contoh: "22 OLT | 22/22") dan tombol Upgrade[cite: 1].
+
+3.2 Pencarian Global & Panel Ringkasan
+    - Global Search Bar: Pencarian instan lintas seluruh OLT berdasarkan nama 
+      pelanggan, Serial Number (SN), deskripsi, atau tag[cite: 1].
+    - Bar Ringkasan Equipment: Menampilkan rekapitulasi total chassis, card/slot, 
+      dan ONU aktif beserta cap waktu pembaruan (contoh: "diperbarui 15.48 WIB")[cite: 1].
+    - Bar Redaman Memburuk: Menampilkan jumlah ONU yang mengalami penurunan 
+      kualitas sinyal optik beserta jam kalkulasi (contoh: badge merah "64" 
+      ONU, "dihitung 15.00 WIB")[cite: 1].
+
+3.3 Manajemen "OLT Anda" (Grid Card OLT)
+    - Tombol Header: "FTTH Maps" (pemetaan jaringan optik) dan "+ Tambah OLT"[cite: 1].
+    - Informasi Kartu OLT:
+      * Nama OLT (contoh: OLT01-MONEX, OLT02-PALEDANG, OLT SOREANG, OLT CIWIDEY)[cite: 1].
+      * Ikon Pintas Kanan Atas: Info (i), Edit (ikon pensil), dan Web CLI (>_ )[cite: 1].
+      * Indikator Status & Tipe: Badge hijau "Online (C320)" atau "Online (C300)"[cite: 1].
+      * Alamat Koneksi: Menampilkan IP (Private/Public) dan port akses (contoh: 
+        10.10.1.11:23 untuk LAN kantor, atau 103.110.8.1:2161)[cite: 1].
+    - 5 Tombol Aksi Utama per Kartu OLT:
+      1. [View]  : Melihat detail informasi sistem OLT, uptime, suhu, dan CPU[cite: 1].
+      2. [Port]  : Melihat daftar card/slot dan port GPON beserta jumlah ONU[cite: 1].
+      3. [Sync]  : Menarik dan menyinkronkan data konfigurasi OLT ke database[cite: 1].
+      4. [ONU]   : Membuka tabel seluruh ONU yang terdaftar di OLT tersebut[cite: 1].
+      5. [Hapus] : Menghapus perangkat OLT dari sistem (khusus ISP Owner)[cite: 1].
+
+
+BAB 4: MODUL API TOKEN MANAGEMENT & SPESIFIKASI API (INTEGRASI AI WHATSAPP)
+--------------------------------------------------------------------------------
+4.1 Halaman API Token Management (Menu <> API)[cite: 1, 2]
+    Halaman khusus bagi ISP Owner untuk membuat dan mengelola token integrasi 
+    eksternal (seperti Bot AI WhatsApp buatan tim programmer)[cite: 2]:
+    - Panel API Base URL: Menampilkan URL utama endpoint API (contoh lokal: 
+      http://10.10.1.100:8000/api/v1 atau domain https://api.domainkantor.id) 
+      lengkap dengan tombol Copy[cite: 2].
+    - Panel API Documentation: Tautan menuju halaman dokumentasi interaktif 
+      Swagger/OpenAPI (/api/docs) yang memuat contoh request, response, dan 
+      parameter[cite: 2].
+    - Panduan Quick Start - API Authentication:
+      1. Generate Token: Buat API token baru dengan durasi masa aktif dan scope 
+         izin (Read-Only / Read-Write) yang sesuai kebutuhan aplikasi[cite: 2].
+      2. Add to Headers: Gunakan format header standar pada setiap HTTP request:
+         Authorization: Bearer YOUR_TOKEN[cite: 2]
+    - Tombol "+ Generate New API Token": Menghasilkan token unik (hash SHA-256) 
+      yang hanya ditampilkan penuh satu kali saat dibuat[cite: 2].
+
+4.2 Daftar Endpoint REST API Utama (Untuk Bot AI WhatsApp)
+    Seluruh endpoint di bawah ini wajib menyertakan HTTP Header:
+    Authorization: Bearer <API_TOKEN>[cite: 2]
+    Content-Type: application/json
+
+    A. GET /api/v1/olts
+       - Fungsi: Mengambil daftar seluruh OLT beserta status Online/Offline[cite: 1].
+       - Contoh Response (200 OK):
+         {
+           "status": "success",
+           "total": 2,
+           "data": [
+             {
+               "id": 1,
+               "name": "OLT01-MONEX",
+               "chassis_type": "C320",
+               "ip_address": "10.10.1.11",
+               "port": 23,
+               "status": "Online",
+               "total_onu": 248,
+               "online_onu": 240,
+               "last_sync": "2026-10-15T15:48:00+07:00"
+             }
+           ]
+         }
+
+    B. GET /api/v1/onus/search?q={keyword}
+       - Fungsi: Dipakai AI WhatsApp untuk mencari data pelanggan berdasarkan 
+         nama, SN, deskripsi, atau tag[cite: 1].
+       - Contoh Response (200 OK):
+         {
+           "status": "success",
+           "query": "Budi",
+           "count": 1,
+           "data": [
+             {
+               "onu_id": 1042,
+               "name": "Budi_Santoso",
+               "sn": "ZTEGC1122334",
+               "description": "Jl. Merdeka No. 10",
+               "tags": ["Prioritas"],
+               "olt_name": "OLT SOREANG",
+               "olt_type": "C300",
+               "interface": "gpon-onu_1/2/1:5",
+               "phase_state": "working",
+               "rx_power_dbm": -19.45,
+               "olt_rx_power_dbm": -20.10,
+               "signal_quality": "Normal",
+               "pppoe_username": "budi123@isp.id",
+               "vlan": 120,
+               "last_down_cause": "DyingGasp",
+               "last_sync": "2026-10-15T15:48:00+07:00"
+             }
+           ]
+         }
+
+    C. GET /api/v1/onus/{onu_id}/live
+       - Fungsi: Meminta server NMS menembak langsung ke IP Private OLT detik 
+         itu juga via SNMP/Telnet untuk mengambil data real-time saat AI 
+         WhatsApp sedang melakukan diagnosa komplain pelanggan.
+       - Contoh Response (200 OK):
+         {
+           "status": "success",
+           "realtime": true,
+           "data": {
+             "onu_id": 1042,
+             "interface": "gpon-onu_1/2/1:5",
+             "phase_state": "dying-gasp",
+             "rx_power_dbm": -40.0,
+             "last_rx_before_down_dbm": -21.20,
+             "uptime": "0d 00h 00m",
+             "ai_diagnostic_hint": "Modem pelanggan mati listrik atau adaptor tercabut (DyingGasp). Redaman terakhir sebelum mati normal (-21.20 dBm)."
+           }
+         }
+
+    D. GET /api/v1/monitoring/bad-rx?threshold=-27.0
+       - Fungsi: Mengambil daftar ONU yang masuk kategori "Redaman Memburuk" 
+         untuk dilaporkan oleh AI WhatsApp ke grup teknisi/NOC[cite: 1].
+       - Contoh Response (200 OK):
+         {
+           "status": "success",
+           "calculated_at": "15:00 WIB",
+           "threshold_dbm": -27.0,
+           "total_bad_onu": 64,
+           "data": [
+             {
+               "onu_id": 882,
+               "name": "Warung_Kopi",
+               "sn": "ZTEGC5566778",
+               "olt_name": "OLT CIWIDEY",
+               "interface": "gpon-onu_1/1/4:12",
+               "previous_rx_dbm": -23.50,
+               "current_rx_dbm": -29.80,
+               "drop_delta_dbm": -6.30
+             }
+           ]
+         }
+
+    E. POST /api/v1/onus/{onu_id}/reboot
+       - Fungsi: Mengeksekusi perintah reboot ONU ke OLT dari chat AI WhatsApp 
+         (Membutuhkan API Token dengan izin Write).
+       - Contoh Response (200 OK):
+         {
+           "status": "success",
+           "message": "Perintah reboot berhasil dikirim ke gpon-onu_1/2/1:5 di OLT SOREANG",
+           "audit_log_id": 99201
+         }
+
+
+BAB 5: ARSITEKTUR TEKNIS & SKEMA DATABASE
+--------------------------------------------------------------------------------
+5.1 Tech Stack yang Digunakan
+    - Web Dashboard & API Management : Laravel 11 + Tailwind CSS (UI Dark Mode).
+    - OLT Poller & CLI Worker Engine : Python FastAPI (Netmiko, AsyncSNMP, Xterm.js).
+    - Database Utama & Cache         : PostgreSQL / MySQL + Redis Queue.
+
+5.2 Struktur Tabel Database Inti
+    1. tenants          : id, name, plan_type (Trial/Premium), olt_quota, 
+                          balance, expired_at[cite: 1].
+    2. users            : id, tenant_id, name, email, password, role 
+                          (isp_owner, noc, cs, teknisi)[cite: 1].
+    3. api_tokens       : id, tenant_id, name, token_hash, abilities (read/write), 
+                          expires_at, last_used_at, created_at[cite: 2].
+    4. olts             : id, tenant_id, name, chassis_type (C300/C320), ip_address, 
+                          telnet_port, telnet_user, telnet_pass_enc, snmp_port, 
+                          snmp_community_enc, status, last_sync_at[cite: 1].
+    5. olt_ports        : id, olt_id, slot_no, port_no, interface_name, 
+                          description, total_onu, online_onu[cite: 1].
+    6. onus             : id, tenant_id, olt_id, olt_port_id, onu_index, name, 
+                          sn, description, phase_state, rx_power, olt_rx_power, 
+                          pppoe_user, vlan_id, latitude, longitude, updated_at[cite: 1].
+    7. onu_optical_logs : id, onu_id, rx_power, olt_rx_power, calculated_at 
+                          (untuk fitur Redaman Memburuk)[cite: 1].
+    8. tags & onu_tag   : id, tenant_id, tag_name, color_hex[cite: 1].
+    9. audit_logs       : id, tenant_id, actor_type (User/API_Token), actor_id, 
+                          olt_id, action, target, ip_address, created_at[cite: 1, 2].
+
+
+BAB 6: TAHAPAN PENGERJAAN (ROADMAP EKSEKUSI)
+--------------------------------------------------------------------------------
+- Tahap 1 (Minggu 1): Setup database multi-tenant, halaman API Token Management, 
+  dan pembuatan endpoint REST API (dengan data simulasi & koneksi OLT pertama) 
+  agar tim programmer AI WhatsApp bisa langsung melakukan tes integrasi[cite: 2].
+- Tahap 2 (Minggu 2): Pembangunan engine Python (SNMP & Telnet) untuk koneksi 
+  ke seluruh OLT C300/C320 via IP Private kantor (fitur Sync, View, Port, ONU, 
+  dan kalkulasi otomatis Redaman Memburuk)[cite: 1].
+- Tahap 3 (Minggu 3): Pembangunan UI Dashboard utama, Global Search, manajemen 
+  Staff, Audit Log, Web CLI (>_), dan integrasi notifikasi Telegram[cite: 1].
+- Tahap 4 (Minggu 4+): Fitur FTTH Maps (Leaflet.js) serta aktivasi modul SaaS 
+  (kuota OLT, Saldo, Affiliate, VPN, dan Payment Gateway untuk Upgrade)[cite: 1].
+================================================================================

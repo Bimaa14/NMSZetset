@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "sakelar": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Sakelar AI",
+      "options": {
+        "baseURL": "https://api.sakelar.web.id/v1"
+      },
+      "models": {
+        "gpt-6-luna": {
+          "name": "GPT 6 Luna (x1 - Rp200)"
+        },
+        "deepseek-v4.1-flash": {
+          "name": "DeepSeek v4.1 Flash (x0.85 - Rp170)"
+        },
+        "gpt-6.1-sol": {
+          "name": "GPT 6.1 Sol (x10.5 - Rp2.100)"
+        },
+        "claude-opus-5.5": {
+          "name": "Claude Opus 5.5 (x12 - Rp2.400)"
+        },
+        "gemini-4-argon": {
+          "name": "Gemini 4 Argon (x12 - Rp2.400)"
+        },
+        "gpt-6-astra": {
+          "name": "GPT 6 Astra (x24 - Rp4.800)"
+        }
+      }
+    }
+  }
+}
