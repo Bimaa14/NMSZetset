@@ -35,7 +35,7 @@ export function workspaceModules(){return {
     notificationLogs:[],
     notificationForm:{telegram_enabled:false,telegram_bot_token:'',telegram_chat_id:'',telegram_thread_id:'',whatsapp_enabled:false,whatsapp_provider:'baileys',whatsapp_endpoint_url:'http://127.0.0.1:3001/send-message',whatsapp_api_key:'',whatsapp_session_id:'default',whatsapp_recipients:'',notify_on_los:true,notify_on_dying_gasp:true,notify_on_recovery:true,notify_on_bad_rx:true,bad_rx_threshold:-27,cooldown_minutes:15},
     powerData:{monitors:[],groups:[],summary:{total:0,up:0,warning:0,down:0,unknown:0,avg_latency_ms:null},settings:null,logs:[]},
-    powerForm:null,powerOnuOptions:[],powerOnuSearch:'',powerFilter:{q:'',group:'all',status:'all'},powerChecking:false,powerCheckingId:null,
+    powerTab:'monitors',powerForm:null,powerOnuOptions:[],powerOnuSearch:'',powerFilter:{q:'',group:'all',status:'all'},powerChecking:false,powerCheckingId:null,
     powerSettingsForm:{power_notify_enabled:true,power_whatsapp_recipients:'',power_telegram_chat_id:'',power_telegram_thread_id:'',power_cooldown_minutes:5},
     ftth:{nodes:[],assignments:[]},nodeForm:null,mapOlt:'all',assignmentForm:{node_id:'',onu_id:'',port_number:1},
     onModuleOpen(type){
@@ -44,7 +44,7 @@ export function workspaceModules(){return {
         if(type==='backups'){this.restoreBackupId=null;this.restorePlan=null;this.restoreRows=[];this.restoreOnuId='';this.loadBackups();}
         if(type==='api')this.loadApiTokens();
         if(['telegram','whatsapp'].includes(type)){this.notificationTab=type;this.loadNotifications();}
-        if(type==='power'){this.powerForm=null;this.loadPowerMonitors();}
+        if(type==='power'){this.powerTab='monitors';this.powerForm=null;this.loadPowerMonitors();}
         if(type==='profile')this.profileForm={name:this.db.user.name,username:this.db.user.username,current_password:'',password:'',password_confirmation:''};
         if(type==='maps'){this.nodeForm=null;this.loadFtth();}
     },
@@ -54,8 +54,8 @@ export function workspaceModules(){return {
         if(data.settings)this.powerSettingsForm={power_notify_enabled:!!data.settings.power_notify_enabled,power_whatsapp_recipients:data.settings.power_whatsapp_recipients||'',power_telegram_chat_id:data.settings.power_telegram_chat_id||'',power_telegram_thread_id:data.settings.power_telegram_thread_id||'',power_cooldown_minutes:Number(data.settings.power_cooldown_minutes??5)};
     },
     async loadPowerMonitors(){try{const data=await this.request('/power-monitors');this.applyPowerPayload(data);}catch(e){this.showError(e);}},
-    newPowerMonitor(){this.error='';this.validationErrors={};const defaultGroup=this.powerData.groups?.[0]||'MONITORING-LISTRIK-ONU-BANDUNG';this.powerOnuSearch='';this.powerForm={id:null,name:'',group_name:defaultGroup,location:'',monitor_type:'both',ip_address:'',olt_id:'',onu_id:'',whatsapp_recipients_override:'',is_enabled:true};this.powerOnuOptions=[];this.loadPowerOnus('','');},
-    editPowerMonitor(m){this.error='';this.validationErrors={};const oltId=m.onu?.olt_id?String(m.onu.olt_id):'';this.powerOnuSearch=m.onu?.sn||'';this.powerForm={id:m.id,name:m.name,group_name:m.group_name||'MONITORING-LISTRIK',location:m.location||'',monitor_type:m.monitor_type||'ping',ip_address:m.ip_address||'',olt_id:oltId,onu_id:m.onu_id?String(m.onu_id):'',whatsapp_recipients_override:m.whatsapp_recipients_override||'',is_enabled:!!m.is_enabled};this.loadPowerOnus(oltId,this.powerOnuSearch);},
+    newPowerMonitor(){this.error='';this.validationErrors={};this.powerTab='monitors';const defaultGroup=this.powerData.groups?.[0]||'MONITORING-LISTRIK-ONU-BANDUNG';this.powerOnuSearch='';this.powerForm={id:null,name:'',group_name:defaultGroup,location:'',monitor_type:'both',ip_address:'',olt_id:'',onu_id:'',whatsapp_recipients_override:'',is_enabled:true};this.powerOnuOptions=[];this.loadPowerOnus('','');},
+    editPowerMonitor(m){this.error='';this.validationErrors={};this.powerTab='monitors';const oltId=m.onu?.olt_id?String(m.onu.olt_id):'';this.powerOnuSearch=m.onu?.sn||'';this.powerForm={id:m.id,name:m.name,group_name:m.group_name||'MONITORING-LISTRIK',location:m.location||'',monitor_type:m.monitor_type||'ping',ip_address:m.ip_address||'',olt_id:oltId,onu_id:m.onu_id?String(m.onu_id):'',whatsapp_recipients_override:m.whatsapp_recipients_override||'',is_enabled:!!m.is_enabled};this.loadPowerOnus(oltId,this.powerOnuSearch);},
     onPowerTypeChange(){if(this.powerForm&&this.powerForm.monitor_type!=='ping'&&!this.powerOnuOptions.length)this.loadPowerOnus(this.powerForm.olt_id,this.powerOnuSearch);},
     async loadPowerOnus(oltId='',q=''){try{const params=new URLSearchParams({per_page:100,sort:'name',direction:'asc'});if(oltId)params.set('olt_id',oltId);if((q||'').trim())params.set('q',q.trim());const res=await this.request('/onus?'+params);this.powerOnuOptions=res.data||[];}catch{this.powerOnuOptions=[];}},
     async savePowerMonitor(){if(this.busy||!this.powerForm)return;this.busy=true;this.error='';this.validationErrors={};try{const p=this.powerForm;const payload={name:p.name,group_name:p.group_name,location:p.location,monitor_type:p.monitor_type,ip_address:p.ip_address||null,onu_id:p.onu_id?Number(p.onu_id):null,whatsapp_recipients_override:p.whatsapp_recipients_override||null,is_enabled:!!p.is_enabled};const data=await this.request(p.id?'/power-monitors/'+p.id:'/power-monitors',p.id?'PUT':'POST',payload);this.applyPowerPayload(data);this.powerForm=null;await this.reload();this.notify(data.message);}catch(e){this.showError(e);}finally{this.busy=false;}},
