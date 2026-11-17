@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\{NotificationLog, NotificationSetting, Olt, OltPort, Onu, PowerMonitor};
+use App\Services\Olt\ZteOnuDetailService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\{Cache, DB, Log};
 use Throwable;
@@ -11,7 +12,8 @@ class PowerMonitorService
 {
     public function __construct(
         private PowerProbeService $probe,
-        private NotificationService $notifications
+        private NotificationService $notifications,
+        private ZteOnuDetailService $detailService
     ) {}
 
     public function checkAllDue(?int $tenantId = null): int
@@ -54,7 +56,7 @@ class PowerMonitorService
      *
      * @return list<PowerMonitor>
      */
-    public function checkTenantNow(int $tenantId): array
+    public function checkTenantNow(int $tenantId, bool $notifyOnInitialDown = true): array
     {
         $monitors = PowerMonitor::where('tenant_id', $tenantId)
             ->where('is_enabled', true)
@@ -65,7 +67,7 @@ class PowerMonitorService
 
         $updated = [];
         foreach ($monitors as $monitor) {
-            $updated[] = $this->checkOne($monitor);
+            $updated[] = $this->checkOne($monitor, $notifyOnInitialDown);
         }
 
         return $updated;
@@ -78,10 +80,21 @@ class PowerMonitorService
         }
 
         $probeResult = $this->probe->ping($monitor->ip_address);
+        $onuCheck = null;
+
+        // Double check: if Ping RTO and sensor is linked to an ONU, probe the ONU state live on OLT.
+        if (! $probeResult['reachable'] && $monitor->onu_id) {
+            $monitor->loadMissing('onu.port', 'onu.olt');
+            if ($monitor->onu) {
+                $onuCheck = $this->detailService->probeLiveState($monitor->onu);
+            }
+        }
+
         $transition = null;
         $previousDownAt = $monitor->last_down_at;
+        $alertReason = (string) ($probeResult['error'] ?? 'ICMP Ping Timeout');
 
-        $fresh = DB::transaction(function () use ($monitor, $probeResult, $notifyOnInitialDown, &$transition, &$previousDownAt) {
+        $fresh = DB::transaction(function () use ($monitor, $probeResult, $onuCheck, $notifyOnInitialDown, &$transition, &$previousDownAt, &$alertReason) {
             $locked = PowerMonitor::whereKey($monitor->id)->with('onu.port', 'onu.olt')->lockForUpdate()->first();
             if (! $locked) {
                 return null;
@@ -109,6 +122,55 @@ class PowerMonitorService
                 if ($oldStatus === 'down') {
                     $transition = 'power_up';
                 }
+            } elseif ($onuCheck !== null) {
+                $onuPhase = $onuCheck['phase_state'] ?? null;
+                $sourceLabel = ($onuCheck['live'] ?? false) ? 'Live OLT' : 'Snapshot OLT';
+
+                if ($onuPhase === 'working') {
+                    // Ping RTO, but ONU is still WORKING on OLT -> skip false alarm WA report.
+                    if ($oldStatus === 'down') {
+                        $locked->update([
+                            'last_latency_ms' => null,
+                            'packet_loss' => $probeResult['packet_loss'],
+                            'consecutive_failures' => min(65535, $locked->consecutive_failures + 1),
+                            'last_checked_at' => $now,
+                            'last_error' => "ONU sudah WORKING ({$sourceLabel}), menunggu respon Ping IP…",
+                        ]);
+                    } else {
+                        $updates = [
+                            'status' => 'warning',
+                            'last_latency_ms' => null,
+                            'packet_loss' => $probeResult['packet_loss'],
+                            'consecutive_failures' => min(65535, $locked->consecutive_failures + 1),
+                            'last_checked_at' => $now,
+                            'last_error' => "Ping RTO · Double Check ({$sourceLabel}): ONU masih WORKING (tidak kirim WA)",
+                        ];
+                        if ($oldStatus !== 'warning') {
+                            $updates['last_state_changed_at'] = $now;
+                        }
+                        $locked->update($updates);
+                    }
+                } else {
+                    $phaseText = $onuPhase ? strtoupper($onuPhase) : 'TIDAK TERJANGKAU';
+                    $alertReason = "Ping RTO + Double Check ({$sourceLabel}): Status ONU {$phaseText}";
+                    $updates = [
+                        'status' => 'down',
+                        'last_latency_ms' => null,
+                        'packet_loss' => $probeResult['packet_loss'],
+                        'consecutive_failures' => min(65535, $locked->consecutive_failures + 1),
+                        'last_checked_at' => $now,
+                        'last_error' => mb_substr($alertReason, 0, 255),
+                    ];
+                    if ($oldStatus !== 'down') {
+                        $updates['last_down_at'] = $now;
+                        $updates['last_state_changed_at'] = $now;
+                    }
+                    $locked->update($updates);
+
+                    if (in_array($oldStatus, ['up', 'warning'], true) || ($notifyOnInitialDown && $oldStatus === 'unknown')) {
+                        $transition = 'power_down';
+                    }
+                }
             } else {
                 $updates = [
                     'status' => 'down',
@@ -124,7 +186,7 @@ class PowerMonitorService
                 }
                 $locked->update($updates);
 
-                if ($oldStatus === 'up' || ($notifyOnInitialDown && $oldStatus === 'unknown')) {
+                if (in_array($oldStatus, ['up', 'warning'], true) || ($notifyOnInitialDown && $oldStatus === 'unknown')) {
                     $transition = 'power_down';
                 }
             }
@@ -137,7 +199,7 @@ class PowerMonitorService
         }
 
         if ($transition !== null) {
-            $this->dispatchMonitorAlert($fresh, $transition, $previousDownAt, $probeResult['error'] ?? 'ICMP Ping Timeout');
+            $this->dispatchMonitorAlert($fresh, $transition, $previousDownAt, $alertReason);
         }
 
         return $fresh;
@@ -163,7 +225,7 @@ class PowerMonitorService
             ->get()
             ->groupBy('onu_id');
 
-        $downStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'restorefail'];
+        $downStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'restorefail', 'sync-mib', 'logging', 'auth'];
         $recoveryFromStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'restorefail', 'sync-mib', 'logging', 'auth'];
 
         foreach ($statusChanges as $item) {
@@ -182,6 +244,11 @@ class PowerMonitorService
             $monitors = $linkedMonitors->get($onu->id);
             if ($monitors && $monitors->isNotEmpty()) {
                 foreach ($monitors as $monitor) {
+                    if ($monitor->monitor_type === 'both' && $monitor->ip_address) {
+                        $this->checkOne($monitor, true);
+                        continue;
+                    }
+
                     if ($isDown) {
                         $prevDownAt = $monitor->last_down_at;
                         $transition = null;
@@ -202,19 +269,14 @@ class PowerMonitorService
                             if ($oldStatus !== 'down') {
                                 $transition = 'power_down';
                             }
+
                             return $locked->fresh(['onu.port', 'onu.olt']);
                         });
 
                         if ($fresh && $transition === 'power_down') {
-                            $reason = 'ONU '.strtoupper($newPhase);
-                            $this->dispatchMonitorAlert($fresh, 'power_down', $prevDownAt, $reason, $olt->id, $onu->id);
+                            $this->dispatchMonitorAlert($fresh, 'power_down', $prevDownAt, 'ONU '.strtoupper($newPhase), $olt->id, $onu->id);
                         }
                     } elseif ($isUp) {
-                        if ($monitor->monitor_type === 'both' && $monitor->ip_address) {
-                            $this->checkOne($monitor);
-                            continue;
-                        }
-
                         $prevDownAt = $monitor->last_down_at;
                         $transition = null;
                         $fresh = DB::transaction(function () use ($monitor, &$transition) {
@@ -234,6 +296,7 @@ class PowerMonitorService
                             if ($oldStatus === 'down') {
                                 $transition = 'power_up';
                             }
+
                             return $locked->fresh(['onu.port', 'onu.olt']);
                         });
 
@@ -257,9 +320,9 @@ class PowerMonitorService
     public function sendPowerTest(NotificationSetting $setting): array
     {
         $sample = PowerMonitor::where('tenant_id', $setting->tenant_id)->orderBy('id')->first();
-        $name = $sample?->name ?? 'MONITORING LISTRIK CIPAKU';
-        $group = $sample?->group_name ?? 'MONITORING-LISTRIK-ONU-BANDUNG';
-        $target = $sample?->ip_address ?? '172.16.155.253';
+        $name = $sample?->name ?? 'MONITORING LISTRIK POP-01';
+        $group = $sample?->group_name ?? 'MONITORING-LISTRIK';
+        $target = $sample?->ip_address ?? '10.10.99.10';
 
         $message = implode("\n", [
             '⚡ *[TES MONITORING LISTRIK] PLN / POWER ALERT*',
@@ -268,7 +331,7 @@ class PowerMonitorService
             "• Group: {$group}",
             "• Target IP / ONU: `{$target}`",
             '• Status: UP ➔ *PADAM (Simulasi Tes)*',
-            '• Penyebab: ICMP Ping Timeout / Dying Gasp',
+            '• Double Check: Ping RTO + Status ONU DYING-GASP',
             '• Waktu: '.now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB',
             '',
             '_Integrasi alert Monitoring Listrik LUMINA NMS aktif dan siap digunakan._',
@@ -371,12 +434,14 @@ class PowerMonitorService
             $port = $monitor->onu->port;
             $ifName = $port ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $port->interface_name).':'.$monitor->onu->onu_index : ('ONU #'.$monitor->onu->onu_index);
             $oltName = $monitor->onu->olt?->name ?? 'OLT';
-            $lines[] = "• Sensor ONU: {$monitor->onu->name} ({$oltName} `{$ifName}`)";
+            $onuStateLabel = strtoupper((string) ($monitor->onu->phase_state ?? 'unknown'));
+            $lines[] = "• Sensor ONU: {$monitor->onu->name} (`{$monitor->onu->sn}`)";
+            $lines[] = "• OLT / Port: {$oltName} (`{$ifName}`) · State: *{$onuStateLabel}*";
         }
 
         if ($eventType === 'power_down') {
             $lines[] = '• Status: *PADAM / OFFLINE*';
-            $lines[] = "• Keterangan: {$reason}";
+            $lines[] = "• Hasil Cek: {$reason}";
         } else {
             $latency = $monitor->last_latency_ms !== null ? ' (Ping: '.number_format((float) $monitor->last_latency_ms, 2).' ms)' : '';
             $lines[] = "• Status: *MENYALA KEMBALI (UP)*{$latency}";

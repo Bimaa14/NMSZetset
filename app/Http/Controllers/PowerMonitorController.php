@@ -119,10 +119,12 @@ class PowerMonitorController extends Controller
                     ...$this->payload($tenantId),
                 ], 422);
             }
-            $updated = $service->checkOne($monitor);
-            $statusLabel = $updated->status === 'up'
-                ? 'UP ('.($updated->last_latency_ms !== null ? $updated->last_latency_ms.' ms' : 'OK').')'
-                : 'PADAM / Timeout';
+            $updated = $service->checkOne($monitor, true);
+            $statusLabel = match ($updated->status) {
+                'up' => 'UP ('.($updated->last_latency_ms !== null ? $updated->last_latency_ms.' ms' : 'OK').')',
+                'warning' => 'Ping RTO · Double Check: ONU masih WORKING (WA tidak dikirim)',
+                default => $updated->last_error ?: 'PADAM / Timeout',
+            };
 
             return response()->json([
                 'message' => "{$updated->name}: {$statusLabel}",
@@ -223,6 +225,7 @@ class PowerMonitorController extends Controller
             'monitor_type' => ['required', 'string', Rule::in(['ping', 'onu', 'both'])],
             'ip_address' => ['nullable', 'ip', 'max:45'],
             'onu_id' => ['nullable', 'integer'],
+            'onu_sn' => ['nullable', 'string', 'max:64'],
             'whatsapp_recipients_override' => ['nullable', 'string', 'max:500'],
             'is_enabled' => ['required', 'boolean'],
         ]);
@@ -234,6 +237,16 @@ class PowerMonitorController extends Controller
         }
 
         $onuId = $data['onu_id'] ?? null;
+        if (! $onuId && ! empty($data['onu_sn'])) {
+            $onuId = Onu::current()->where('tenant_id', $tenantId)
+                ->where('sn', strtoupper(trim((string) $data['onu_sn'])))
+                ->value('id');
+            if (! $onuId && in_array($data['monitor_type'], ['onu', 'both'], true)) {
+                throw ValidationException::withMessages([
+                    'onu_id' => "Serial ONU '{$data['onu_sn']}' tidak ditemukan di OLT tenant ini.",
+                ]);
+            }
+        }
         if (in_array($data['monitor_type'], ['onu', 'both'], true)) {
             if (! $onuId) {
                 throw ValidationException::withMessages([
@@ -269,7 +282,7 @@ class PowerMonitorController extends Controller
                 'onu' => fn ($q) => $q->select('id', 'olt_id', 'olt_port_id', 'onu_index', 'name', 'sn', 'phase_state')
                     ->with(['port:id,interface_name', 'olt:id,name']),
             ])
-            ->orderByRaw("CASE WHEN status = 'down' THEN 0 WHEN status = 'unknown' THEN 1 ELSE 2 END")
+            ->orderByRaw("CASE WHEN status = 'down' THEN 0 WHEN status = 'warning' THEN 1 WHEN status = 'unknown' THEN 2 ELSE 3 END")
             ->orderBy('name')
             ->get()
             ->map(function (PowerMonitor $monitor) {
@@ -301,6 +314,7 @@ class PowerMonitorController extends Controller
             'summary' => [
                 'total' => $monitors->count(),
                 'up' => $enabled->where('status', 'up')->count(),
+                'warning' => $enabled->where('status', 'warning')->count(),
                 'down' => $enabled->where('status', 'down')->count(),
                 'unknown' => $enabled->where('status', 'unknown')->count(),
                 'avg_latency_ms' => $latencies->isNotEmpty() ? round($latencies->avg(), 2) : null,

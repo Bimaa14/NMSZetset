@@ -47,6 +47,7 @@
             <select x-model="powerFilter.status">
                 <option value="all">Semua Status</option>
                 <option value="up">Menyala (UP)</option>
+                <option value="warning">Ping RTO · ONU Working</option>
                 <option value="down">Padam (DOWN)</option>
                 <option value="unknown">Belum Dicek</option>
             </select>
@@ -75,35 +76,38 @@
                     <small class="red-text" x-show="fieldError('name')" x-text="fieldError('name')"></small>
                 </label>
                 <label>Device Group
-                    <input x-model="powerForm.group_name" maxlength="120" placeholder="MONITORING-LISTRIK-ONU-BANDUNG">
+                    <input x-model="powerForm.group_name" maxlength="120" placeholder="MONITORING-LISTRIK">
                 </label>
                 <label>Area / Keterangan Lokasi (opsional)
-                    <input x-model="powerForm.location" maxlength="160" placeholder="Cipaku, Bandung">
+                    <input x-model="powerForm.location" maxlength="160" placeholder="POP / Lokasi Gardu">
                 </label>
                 <label>Mode Deteksi
                     <select x-model="powerForm.monitor_type" @change="onPowerTypeChange()">
-                        <option value="ping">Ping IP (ICMP) — persis LibreNMS</option>
-                        <option value="onu">Status ONU di OLT (Dying Gasp / Power Off)</option>
-                        <option value="both">Ping IP + Status ONU OLT (Ganda)</option>
+                        <option value="both">Ping IP + Double-Check ONU OLT (Direkomendasikan)</option>
+                        <option value="ping">Ping IP (ICMP) saja</option>
+                        <option value="onu">Status ONU di OLT saja</option>
                     </select>
                 </label>
                 <label x-show="powerForm.monitor_type !== 'onu'">Alamat IP Target (Ping ICMP)
-                    <input x-model="powerForm.ip_address" :required="powerForm.monitor_type !== 'onu'" maxlength="45" placeholder="172.16.155.253">
+                    <input x-model="powerForm.ip_address" :required="powerForm.monitor_type !== 'onu'" maxlength="45" placeholder="10.10.1.100">
                     <small class="red-text" x-show="fieldError('ip_address')" x-text="fieldError('ip_address')"></small>
                 </label>
-                <label x-show="powerForm.monitor_type !== 'ping'">Pilih OLT (untuk ambil daftar ONU)
-                    <select x-model="powerForm.olt_id" @change="loadPowerOnus(powerForm.olt_id)">
-                        <option value="">— Pilih OLT —</option>
+                <label x-show="powerForm.monitor_type !== 'ping'">Filter OLT (opsional)
+                    <select x-model="powerForm.olt_id" @change="loadPowerOnus(powerForm.olt_id, powerOnuSearch)">
+                        <option value="">Semua OLT</option>
                         <template x-for="olt in db.olts" :key="olt.id">
                             <option :value="String(olt.id)" x-text="olt.name"></option>
                         </template>
                     </select>
                 </label>
+                <label x-show="powerForm.monitor_type !== 'ping'">Cari ONU (SN / Nama)
+                    <input x-model="powerOnuSearch" @input.debounce.250ms="loadPowerOnus(powerForm.olt_id, powerOnuSearch)" placeholder="Ketik SN atau nama ONU...">
+                </label>
                 <label x-show="powerForm.monitor_type !== 'ping'">ONU Terkait
                     <select x-model="powerForm.onu_id" :required="powerForm.monitor_type !== 'ping'">
                         <option value="">— Pilih ONU Sensor —</option>
                         <template x-for="onu in powerOnuOptions" :key="onu.id">
-                            <option :value="String(onu.id)" x-text="(onu.name && onu.name!==onu.sn ? onu.name + ' · ' : '') + onu.sn + ' (' + onu.interface + ')'"></option>
+                            <option :value="String(onu.id)" x-text="oltName(onu.olt_id) + ' · ' + (onu.name && onu.name!==onu.sn ? onu.name + ' · ' : '') + onu.sn + ' (' + onu.interface + ')'"></option>
                         </template>
                     </select>
                     <small class="red-text" x-show="fieldError('onu_id')" x-text="fieldError('onu_id')"></small>
@@ -148,15 +152,15 @@
                             <small x-show="m.onu_label" x-text="m.onu_label"></small>
                         </td>
                         <td>
-                            <span class="status-badge" :class="!m.is_enabled ? 'offline' : (m.status === 'up' ? 'online' : (m.status === 'down' ? 'phase-los' : 'offline'))">
+                            <span class="status-badge" :class="!m.is_enabled ? 'offline' : (m.status === 'up' ? 'online' : (m.status === 'down' ? 'phase-los' : (m.status === 'warning' ? 'phase-reboot' : 'offline')))">
                                 <span class="dot" :class="!m.is_enabled ? 'gray' : (m.status === 'up' ? 'green' : (m.status === 'down' ? 'red' : 'amber'))"></span>
-                                <span x-text="!m.is_enabled ? 'Dijeda' : (m.status === 'up' ? 'Menyala (UP)' : (m.status === 'down' ? 'PADAM' : 'Belum dicek'))"></span>
+                                <span x-text="!m.is_enabled ? 'Dijeda' : (m.status === 'up' ? 'Menyala (UP)' : (m.status === 'down' ? 'PADAM' : (m.status === 'warning' ? 'Ping RTO · ONU Working' : 'Belum dicek')))"></span>
                             </span>
-                            <small class="red-text" x-show="m.status === 'down' && m.last_error" x-text="m.last_error"></small>
+                            <small :class="m.status === 'warning' ? 'amber-text' : 'red-text'" x-show="['down','warning'].includes(m.status) && m.last_error" x-text="m.last_error"></small>
                         </td>
                         <td class="mono">
                             <span x-show="m.status === 'up' && m.last_latency_ms != null" class="green-text" x-text="m.last_latency_ms + ' ms'"></span>
-                            <span x-show="m.status === 'down'" class="red-text" x-text="m.packet_loss != null ? m.packet_loss + '% loss' : 'Offline'"></span>
+                            <span x-show="['down','warning'].includes(m.status)" :class="m.status === 'warning' ? 'amber-text' : 'red-text'" x-text="m.packet_loss != null ? m.packet_loss + '% loss' : 'Offline'"></span>
                             <span x-show="m.status === 'unknown' || (m.status === 'up' && m.last_latency_ms == null)" class="muted">—</span>
                         </td>
                         <td>

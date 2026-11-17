@@ -151,4 +151,80 @@ class ZteOnuDetailService {
             OnuDetailSnapshot::where('onu_id',$onu->id)->delete();
         }finally{$client->close();}
     }
+
+    /**
+     * Perform a single-command live phase_state check on a ZTE ONU (for Ping RTO double-check).
+     *
+     * @return array{phase_state:?string,live:bool,down_cause:?string}
+     */
+    public function probeLiveState(Onu $onu): array
+    {
+        $onu->loadMissing(['olt', 'port']);
+        if (! $onu->olt || $onu->olt->connection_mode !== 'real' || $onu->olt->chassis_type === 'C1600' || ! $onu->port) {
+            $fresh = $onu->fresh();
+
+            return ['phase_state' => $fresh?->phase_state ?? $onu->phase_state, 'live' => false, 'down_cause' => null];
+        }
+
+        try {
+            return app(RealOltOperations::class)->readOnly($onu->olt, function () use ($onu) {
+                $client = $this->driver->client($onu->olt);
+                $i = $this->interface($onu);
+                try {
+                    $client->connect($onu->olt);
+                    $detail = $client->command('show gpon onu detail-info '.$i, false, 5, 8, true);
+                    $info = $this->parser->info($detail);
+                    if (($info['sn'] ?? null) === null) {
+                        $registered = app(ZteOutputParser::class)->configuredOnus(
+                            $client->command('show running-config interface '.$onu->port->interface_name, false, 5, 8, true),
+                            $onu->port->interface_name
+                        );
+                        $info['sn'] = $registered[substr($i, 9)]['sn'] ?? null;
+                    }
+                    if (strcasecmp($info['sn'] ?? '', $onu->sn) !== 0 || empty($info['phase_state'])) {
+                        $fresh = $onu->fresh();
+
+                        return ['phase_state' => $fresh?->phase_state ?? $onu->phase_state, 'live' => false, 'down_cause' => $info['last_down_cause'] ?? null];
+                    }
+
+                    DB::transaction(function () use ($onu, $info) {
+                        $locked = Onu::whereKey($onu->id)->lockForUpdate()->first();
+                        if (! $locked) {
+                            return;
+                        }
+                        $stamp = now();
+                        $oldPhase = $locked->phase_state;
+                        $updates = ['phase_state' => $info['phase_state'], 'state_observed_at' => $stamp];
+                        if ($oldPhase !== $info['phase_state']) {
+                            DB::table('onu_status_logs')->insert([
+                                'onu_id' => $locked->id,
+                                'phase_state' => $info['phase_state'],
+                                'previous_state' => $oldPhase,
+                                'source' => 'real',
+                                'observed_at' => $stamp,
+                            ]);
+                            if ($info['phase_state'] === 'working') {
+                                $updates['last_online_at'] = $stamp;
+                            } elseif ($oldPhase === 'working') {
+                                $updates['last_offline_at'] = $stamp;
+                            }
+                        }
+                        $locked->update($updates);
+                    });
+
+                    return [
+                        'phase_state' => $info['phase_state'],
+                        'live' => true,
+                        'down_cause' => $info['last_down_cause'] ?? null,
+                    ];
+                } finally {
+                    $client->close();
+                }
+            });
+        } catch (Throwable) {
+            $fresh = $onu->fresh();
+
+            return ['phase_state' => $fresh?->phase_state ?? $onu->phase_state, 'live' => false, 'down_cause' => null];
+        }
+    }
 }
