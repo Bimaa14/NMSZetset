@@ -2,7 +2,7 @@
 namespace App\Services\Olt;
 use App\Models\{Onu,OnuDetailSnapshot};
 use App\Services\NotificationService;
-use Illuminate\Support\Facades\{DB,Log};
+use Illuminate\Support\Facades\{Cache,DB,Log};
 use Throwable;
 
 class ZteOnuDetailService {
@@ -18,9 +18,24 @@ class ZteOnuDetailService {
         app(OltCapabilities::class)->requireSupported($onu->olt);
         return app(RealOltOperations::class)->readOnly($onu->olt,function()use($onu,$section){
             $client=$this->driver->client($onu->olt);$i=$this->interface($onu);$warnings=[];$alive=true;$success=0;
-            $read=function(array $commands)use($client,&$warnings,&$alive,&$success){
+            $idleTimeout=$section==='info'?5:8;$maxDuration=$section==='info'?8:12;
+            $read=function(array $commands,?string $group=null)use($client,&$warnings,&$alive,&$success,$onu,$idleTimeout,$maxDuration){
                 if(!$alive)return '';
-                foreach($commands as $command)try{$out=$client->command($command,false,15,20,true);$success++;return $out;}catch(OltConnectionException $e){$warnings[]=$e->getMessage();if($e->reason!=='command_rejected'){$alive=false;break;}}
+                $ordered=array_values($commands);
+                $cacheKey=$group?'nms:olt-cmd:'.$group.':'.$onu->olt_id:null;
+                if($cacheKey&&count($ordered)>1){
+                    $pref=Cache::get($cacheKey);
+                    if(is_int($pref)&&isset($ordered[$pref])&&$pref>0){
+                        $preferred=$ordered[$pref];unset($ordered[$pref]);array_unshift($ordered,$preferred);
+                    }
+                }
+                foreach($ordered as $command){
+                    try{
+                        $out=$client->command($command,false,$idleTimeout,$maxDuration,true);$success++;
+                        if($cacheKey&&count($commands)>1){$idx=array_search($command,$commands,true);if($idx!==false)Cache::put($cacheKey,$idx,3600);}
+                        return $out;
+                    }catch(OltConnectionException $e){$warnings[]=$e->getMessage();if($e->reason!=='command_rejected'){$alive=false;break;}}
+                }
                 return '';
             };
             try{
@@ -33,17 +48,30 @@ class ZteOnuDetailService {
                 }
                 if(strcasecmp($info['sn']??'',$onu->sn)!==0)throw new OltConnectionException('Serial pada posisi ONU belum terverifikasi atau berubah. Jalankan Sync.','identity_changed');
                 $config='';
-                if(in_array($section,['wan','wifi','config'],true))$config=$read(['show onu running config '.$i,'show running-config pon-onu-mng '.$i]);
-                $data=match($section){
-                    'info'=>$this->parser->info($detail,$read(['show gpon remote-onu equip '.$i,'show gpon remote-onu equip-info '.$i]),$read(['show pon power attenuation '.$i])),
-                    'wan'=>['items'=>$this->parser->wan($read(['show gpon remote-onu wan-ip '.$i]),$config)],
-                    'ethernet'=>['items'=>$this->parser->records($read(['show gpon remote-onu interface eth '.$i,'show gpon remote-onu eth-port '.$i]),'ethernet')],
-                    'iphost'=>['items'=>$this->parser->records($read(['show gpon remote-onu ip-host '.$i,'show gpon remote-onu ip-host-info '.$i]),'iphost')],
-                    'wifi'=>['items'=>$this->parser->wifi($read(['show gpon remote-onu ssid info '.$i,'show gpon remote-onu wifi-info '.$i]),$config,$read(['show gpon remote-onu interface wifi '.$i]))],
-                    'config'=>['output'=>$this->parser->sanitize($read(['show running-config interface '.$i])."\n".$config)],
-                };
-                if($section==='info'&&$alive&&$data['rx_power']===null){$out=$read(['show pon power onu-rx '.$i]);if(preg_match('/(?:Rx power\s*[:=]\s*|'.preg_quote(substr($i,9),'/').'\s+)(-?\d+(?:\.\d+)?)/i',$out,$m))$data['rx_power']=(float)$m[1];}
-                if($section==='info'&&$alive&&$data['olt_rx_power']===null){$out=$read(['show pon power olt-rx '.$i]);if(preg_match('/(?:Rx power\s*[:=]\s*|'.preg_quote(substr($i,9),'/').'\s+)(-?\d+(?:\.\d+)?)/i',$out,$m))$data['olt_rx_power']=(float)$m[1];}
+                if(in_array($section,['wan','wifi','config'],true))$config=$read(['show onu running config '.$i,'show running-config pon-onu-mng '.$i],'mng-config');
+                if($section==='info'){
+                    $existingSnapshot=OnuDetailSnapshot::where(['onu_id'=>$onu->id,'section'=>'info','source'=>'real'])->first();
+                    $existingData=is_array($existingSnapshot?->payload['data']??null)?$existingSnapshot->payload['data']:[];
+                    $isOnline=$info['phase_state']===null||$info['phase_state']==='working';
+                    $hasCachedEquip=$existingSnapshot&&$existingSnapshot->observed_at?->gt(now()->subHours(6))&&(!empty($existingData['reported_type'])||!empty($existingData['software']))&&strcasecmp((string)($existingData['sn']??$onu->sn),(string)$onu->sn)===0;
+                    $equip=($isOnline&&!$hasCachedEquip)?$read(['show gpon remote-onu equip '.$i,'show gpon remote-onu equip-info '.$i],'equip'):'';
+                    $power=$isOnline?$read(['show pon power attenuation '.$i]):'';
+                    $data=$this->parser->info($detail,$equip,$power);
+                    if($hasCachedEquip||!$isOnline){
+                        $data['reported_type']??=$existingData['reported_type']??null;
+                        $data['software']??=$existingData['software']??null;
+                    }
+                    if($isOnline&&$alive&&$data['rx_power']===null){$out=$read(['show pon power onu-rx '.$i]);if(preg_match('/(?:Rx power\s*[:=]\s*|'.preg_quote(substr($i,9),'/').'\s+)(-?\d+(?:\.\d+)?)/i',$out,$m))$data['rx_power']=(float)$m[1];}
+                    if($isOnline&&$alive&&$data['olt_rx_power']===null){$out=$read(['show pon power olt-rx '.$i]);if(preg_match('/(?:Rx power\s*[:=]\s*|'.preg_quote(substr($i,9),'/').'\s+)(-?\d+(?:\.\d+)?)/i',$out,$m))$data['olt_rx_power']=(float)$m[1];}
+                }else{
+                    $data=match($section){
+                        'wan'=>['items'=>$this->parser->wan($read(['show gpon remote-onu wan-ip '.$i]),$config)],
+                        'ethernet'=>['items'=>$this->parser->records($read(['show gpon remote-onu interface eth '.$i,'show gpon remote-onu eth-port '.$i],'ethernet'),'ethernet')],
+                        'iphost'=>['items'=>$this->parser->records($read(['show gpon remote-onu ip-host '.$i,'show gpon remote-onu ip-host-info '.$i],'iphost'),'iphost')],
+                        'wifi'=>['items'=>$this->parser->wifi($read(['show gpon remote-onu ssid info '.$i,'show gpon remote-onu wifi-info '.$i],'wifi'),$config,$read(['show gpon remote-onu interface wifi '.$i]))],
+                        'config'=>['output'=>$this->parser->sanitize($read(['show running-config interface '.$i])."\n".$config)],
+                    };
+                }
                 $payload=['data'=>$data,'warnings'=>array_values(array_unique($warnings)),'source'=>'real','observed_at'=>now()->toIso8601String()];
                 // Do not replace a usable snapshot with an unsupported/failed empty reading.
                 $meaningful=$section==='info'?count(array_filter($data,fn($v)=>$v!==null))>0:($section==='config'?trim($data['output'])!=='':count($data['items'])>0);
