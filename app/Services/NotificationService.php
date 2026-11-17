@@ -154,9 +154,32 @@ class NotificationService
                     ],
                 };
 
-                $response = Http::timeout(10)->withHeaders($headers)->post($endpoint, $payload);
-                $body = $response->json();
-                $logicalFail = is_array($body) && array_key_exists('status', $body) && $body['status'] === false;
+                $targetParam = str_contains($rawTarget, '@') ? $rawTarget : $number;
+                $separator = str_contains($endpoint, '?') ? '&' : '?';
+                $targetUrl = $endpoint.$separator.'target='.rawurlencode($targetParam);
+
+                if ($provider === 'custom') {
+                    // LibreNMS API Alert Transport style: ?target=... with Content-Type: text/plain raw body
+                    $plainHeaders = array_merge($headers, ['Content-Type' => 'text/plain; charset=utf-8']);
+                    $response = Http::timeout(10)->withHeaders($plainHeaders)->withBody($message, 'text/plain; charset=utf-8')->post($targetUrl);
+                    $body = $response->json();
+                    $logicalFail = is_array($body) && array_key_exists('status', $body) && $body['status'] === false;
+                } else {
+                    $response = Http::timeout(10)->withHeaders($headers)->post($endpoint, $payload);
+                    $body = $response->json();
+                    $logicalFail = is_array($body) && array_key_exists('status', $body) && $body['status'] === false;
+
+                    // Automatic fallback for LibreNMS-style Baileys gateway (?target=... + text/plain raw body)
+                    if ((! $response->successful() || $logicalFail) && $provider === 'baileys') {
+                        $plainHeaders = array_merge($headers, ['Content-Type' => 'text/plain; charset=utf-8']);
+                        $fallbackResponse = Http::timeout(10)->withHeaders($plainHeaders)->withBody($message, 'text/plain; charset=utf-8')->post($targetUrl);
+                        if ($fallbackResponse->successful()) {
+                            $response = $fallbackResponse;
+                            $body = $response->json();
+                            $logicalFail = is_array($body) && array_key_exists('status', $body) && $body['status'] === false;
+                        }
+                    }
+                }
 
                 if (! $response->successful() || $logicalFail) {
                     $err = is_array($body) ? ($body['reason'] ?? $body['message'] ?? $body['error'] ?? ('HTTP '.$response->status())) : ('HTTP '.$response->status());

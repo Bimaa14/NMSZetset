@@ -23,9 +23,9 @@
                 <label>Tipe Gateway WhatsApp
                     <select x-model="notificationForm.whatsapp_provider" :disabled="!db.permissions.operate" @change="if(notificationForm.whatsapp_provider==='baileys'&&!notificationForm.whatsapp_endpoint_url)notificationForm.whatsapp_endpoint_url='http://127.0.0.1:3001/send-message';if(notificationForm.whatsapp_provider==='fonnte')notificationForm.whatsapp_endpoint_url='https://api.fonnte.com/send'">
                         <option value="baileys">Node.js Baileys (Lokal / Ubuntu Server)</option>
+                        <option value="custom">LibreNMS WA Gateway / Custom Webhook (text/plain)</option>
                         <option value="fonnte">Fonnte API (api.fonnte.com)</option>
                         <option value="wablas">Wablas API</option>
-                        <option value="custom">Custom HTTP Webhook</option>
                     </select>
                 </label>
                 <label>Session / Device ID (Baileys)
