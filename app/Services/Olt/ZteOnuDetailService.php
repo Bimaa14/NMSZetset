@@ -1,7 +1,9 @@
 <?php
 namespace App\Services\Olt;
 use App\Models\{Onu,OnuDetailSnapshot};
-use Illuminate\Support\Facades\DB;
+use App\Services\NotificationService;
+use Illuminate\Support\Facades\{DB,Log};
+use Throwable;
 
 class ZteOnuDetailService {
     public function __construct(private ZteTelnetDriver $driver,private ZteOnuDetailParser $parser){}
@@ -45,16 +47,37 @@ class ZteOnuDetailService {
                 $payload=['data'=>$data,'warnings'=>array_values(array_unique($warnings)),'source'=>'real','observed_at'=>now()->toIso8601String()];
                 // Do not replace a usable snapshot with an unsupported/failed empty reading.
                 $meaningful=$section==='info'?count(array_filter($data,fn($v)=>$v!==null))>0:($section==='config'?trim($data['output'])!=='':count($data['items'])>0);
+                $statusChanges=[];$opticalChanges=[];
                 if($meaningful){
-                    DB::transaction(function()use($onu,$section,$payload,$data){
+                    DB::transaction(function()use($onu,$section,$payload,$data,&$statusChanges,&$opticalChanges){
                         OnuDetailSnapshot::updateOrCreate(['onu_id'=>$onu->id,'section'=>$section,'source'=>'real'],['payload'=>$payload,'observed_at'=>now()]);
                         if($section==='info'){
+                            $fresh=Onu::whereKey($onu->id)->with('port')->lockForUpdate()->first();
+                            if(!$fresh)return;
+                            $oldPhase=$fresh->phase_state;
+                            $oldRx=$fresh->rx_power!==null?(float)$fresh->rx_power:null;
                             $updates=[];foreach(['phase_state','admin_state','rx_power','olt_rx_power']as$key)if($data[$key]!==null)$updates[$key]=$data[$key];
-                            if(isset($updates['phase_state'])){if($onu->phase_state!==$updates['phase_state'])DB::table('onu_status_logs')->insert(['onu_id'=>$onu->id,'phase_state'=>$updates['phase_state'],'previous_state'=>$onu->phase_state,'source'=>'real','observed_at'=>now()]);$updates['state_observed_at']=now();}
-                            if(isset($updates['rx_power'])||isset($updates['olt_rx_power'])){$updates['optical_observed_at']=now();$onu->opticalLogs()->create(['rx_power'=>$data['rx_power'],'olt_rx_power'=>$data['olt_rx_power'],'observation_source'=>'real','calculated_at'=>now()]);}
-                            if($updates)$onu->update($updates);
+                            $stamp=now();
+                            if(isset($updates['phase_state'])){
+                                if($oldPhase!==$updates['phase_state']){
+                                    DB::table('onu_status_logs')->insert(['onu_id'=>$fresh->id,'phase_state'=>$updates['phase_state'],'previous_state'=>$oldPhase,'source'=>'real','observed_at'=>$stamp]);
+                                    if($updates['phase_state']==='working')$updates['last_online_at']=$stamp;
+                                    elseif($oldPhase==='working')$updates['last_offline_at']=$stamp;
+                                    if($oldPhase!==null)$statusChanges[]=['onu'=>$fresh,'port'=>$fresh->port,'old_phase'=>$oldPhase,'new_phase'=>$updates['phase_state']];
+                                }
+                                $updates['state_observed_at']=$stamp;
+                            }
+                            if(isset($updates['rx_power'])||isset($updates['olt_rx_power'])){$updates['optical_observed_at']=$stamp;$fresh->opticalLogs()->create(['rx_power'=>$data['rx_power'],'olt_rx_power'=>$data['olt_rx_power'],'observation_source'=>'real','calculated_at'=>$stamp]);}
+                            if($updates)$fresh->update($updates);
+                            if((isset($updates['rx_power'])||isset($updates['olt_rx_power']))&&$fresh->rx_power!==null&&$oldRx!==(float)$fresh->rx_power){
+                                $opticalChanges[]=['onu'=>$fresh,'port'=>$fresh->port,'old_rx'=>$oldRx,'new_rx'=>(float)$fresh->rx_power];
+                            }
                         }
                     });
+                    if($statusChanges||$opticalChanges){
+                        try{app(NotificationService::class)->dispatchBatch($onu->olt,$statusChanges,$opticalChanges);}
+                        catch(Throwable $e){Log::warning('Notification dispatch from ONU detail failed',['olt_id'=>$onu->olt_id,'onu_id'=>$onu->id,'error'=>$e->getMessage()]);}
+                    }
                 }else{$old=OnuDetailSnapshot::where(['onu_id'=>$onu->id,'section'=>$section,'source'=>'real'])->first();if($old){$payload['data']=$old->payload['data'];$payload['observed_at']=$old->observed_at->toIso8601String();$payload['stale']=true;}else{$payload['observed_at']=null;$payload['unavailable']=true;}}
                 return $payload;
             }finally{$client->close();}

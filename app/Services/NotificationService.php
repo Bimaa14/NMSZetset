@@ -24,9 +24,9 @@ class NotificationService
 
             if ($newPhase === 'los' && $setting->notify_on_los) {
                 $events[] = ['type' => 'onu_los', 'onu' => $onu, 'port' => $item['port'] ?? null, 'old_phase' => $oldPhase, 'new_phase' => $newPhase];
-            } elseif (in_array($newPhase, ['dying-gasp', 'poweroff', 'offline'], true) && $setting->notify_on_dying_gasp) {
+            } elseif (in_array($newPhase, ['dying-gasp', 'poweroff', 'offline', 'restorefail'], true) && $setting->notify_on_dying_gasp) {
                 $events[] = ['type' => 'onu_dying_gasp', 'onu' => $onu, 'port' => $item['port'] ?? null, 'old_phase' => $oldPhase, 'new_phase' => $newPhase];
-            } elseif ($newPhase === 'working' && in_array($oldPhase, ['los', 'dying-gasp', 'poweroff', 'offline'], true) && $setting->notify_on_recovery) {
+            } elseif ($newPhase === 'working' && in_array($oldPhase, ['los', 'dying-gasp', 'poweroff', 'offline', 'sync-mib', 'logging', 'auth', 'restorefail'], true) && $setting->notify_on_recovery) {
                 $events[] = ['type' => 'onu_recovery', 'onu' => $onu, 'port' => $item['port'] ?? null, 'old_phase' => $oldPhase, 'new_phase' => $newPhase];
             }
         }
@@ -376,12 +376,32 @@ class NotificationService
             return false;
         }
 
-        return NotificationLog::where('tenant_id', $tenantId)
+        $latest = NotificationLog::where('tenant_id', $tenantId)
             ->where('onu_id', $onuId)
             ->where('event_type', $eventType)
             ->where('status', 'sent')
             ->where('sent_at', '>=', now()->subMinutes($cooldownMinutes))
-            ->exists();
+            ->latest('id')
+            ->first();
+
+        if (! $latest) {
+            return false;
+        }
+
+        // If the ONU already recovered after that alert, treat a later outage as a fresh incident.
+        if (in_array($eventType, ['onu_los', 'onu_dying_gasp'], true)) {
+            $recoveredAfter = NotificationLog::where('tenant_id', $tenantId)
+                ->where('onu_id', $onuId)
+                ->where('event_type', 'onu_recovery')
+                ->where('status', 'sent')
+                ->where('id', '>', $latest->id)
+                ->exists();
+            if ($recoveredAfter) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function parseRecipients(string $raw): array

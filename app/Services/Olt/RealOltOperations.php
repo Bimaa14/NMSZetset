@@ -191,7 +191,11 @@ class RealOltOperations
         if ($statusChanges || $opticalChanges) {
             try {
                 app(NotificationService::class)->dispatchBatch($olt, $statusChanges, $opticalChanges);
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Notification dispatch from OLT snapshot failed', [
+                    'olt_id' => $olt->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }

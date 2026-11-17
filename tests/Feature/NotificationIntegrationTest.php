@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\{NotificationLog, NotificationSetting, Olt, OltPort, Onu, User};
 use App\Services\NotificationService;
+use App\Services\Olt\{OltConnectionException, ZteOnuDetailService, ZteTelnetClient};
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -159,5 +160,73 @@ class NotificationIntegrationTest extends TestCase
         ]);
         $this->assertSame(2, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_recovery')->count());
         $this->assertSame(2, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_bad_rx')->count());
+
+        // 4. Subsequent LOS after recovery is treated as a fresh outage (not blocked by prior outage cooldown)
+        $onu->update(['phase_state' => 'los']);
+        $service->dispatchBatch($olt, [
+            ['onu' => $onu, 'port' => $port, 'old_phase' => 'working', 'new_phase' => 'los'],
+        ]);
+        $this->assertSame(4, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_los')->count());
+
+        // 5. Recovery after ZTE intermediate boot states (sync-mib / logging) also notifies
+        $onu->update(['phase_state' => 'working']);
+        $service->dispatchBatch($olt, [
+            ['onu' => $onu, 'port' => $port, 'old_phase' => 'sync-mib', 'new_phase' => 'working'],
+        ]);
+        $this->assertSame(4, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_recovery')->count());
+    }
+
+    public function test_librenms_custom_text_plain_transport_and_onu_detail_refresh_trigger_notifications(): void
+    {
+        Http::fake([
+            'http://172.16.225.72:3000/*' => Http::response(['status' => true], 200),
+        ]);
+
+        $owner = $this->owner();
+        $olt = Olt::where('tenant_id', $owner->tenant_id)->firstOrFail();
+        $olt->update(['connection_mode' => 'real']);
+        $port = OltPort::where('olt_id', $olt->id)->firstOrFail();
+        $onu = Onu::where('olt_id', $olt->id)->where('olt_port_id', $port->id)->firstOrFail();
+        $onu->update(['observation_source' => 'real', 'phase_state' => 'working']);
+
+        $setting = NotificationSetting::forTenant($owner->tenant_id);
+        $setting->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_provider' => 'custom',
+            'whatsapp_endpoint_url' => 'http://172.16.225.72:3000/send-message',
+            'whatsapp_recipients' => '120363214923632683@g.us',
+            'notify_on_los' => true,
+            'notify_on_recovery' => true,
+            'cooldown_minutes' => 15,
+        ]);
+
+        $phase = 'LOS';
+        $mock = \Mockery::mock(ZteTelnetClient::class);
+        $mock->shouldReceive('connect', 'close', 'addSecrets')->andReturnNull();
+        $mock->shouldReceive('command')->andReturnUsing(function (string $command) use ($onu, &$phase) {
+            if (str_starts_with($command, 'show gpon onu detail-info')) {
+                return "Serial number: {$onu->sn}\nPhase state: {$phase}\n";
+            }
+            if (str_starts_with($command, 'show pon power attenuation')) {
+                return "down Tx : 2.50(dBm) Rx : -21.00(dBm)\n";
+            }
+            throw new OltConnectionException('Unsupported command', 'command_rejected');
+        });
+        $this->app->instance(ZteTelnetClient::class, $mock);
+
+        $detailService = app(ZteOnuDetailService::class);
+        $detailService->refresh($onu->fresh(), 'info');
+
+        $this->assertSame(1, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_los')->where('status', 'sent')->count());
+
+        $phase = 'working';
+        $detailService->refresh($onu->fresh(), 'info');
+
+        $this->assertSame(1, NotificationLog::where('onu_id', $onu->id)->where('event_type', 'onu_recovery')->where('status', 'sent')->count());
+
+        Http::assertSent(function ($request) {
+            return str_starts_with($request->url(), 'http://172.16.225.72:3000/send-message?target=120363214923632683%40g.us')
+                && str_contains(strtolower($request->header('Content-Type')[0] ?? ''), 'text/plain');
+        });
     }
 }

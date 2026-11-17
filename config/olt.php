@@ -3,7 +3,7 @@
 return [
     // Reserved independently of one monitoring and one interactive read session.
     'control_sessions' => max(1, min(4, (int) env('OLT_CONTROL_SESSIONS', 2))),
-    'state_interval' => max(300, (int) env('OLT_STATE_INTERVAL', 300)),
+    'state_interval' => max(30, (int) env('OLT_STATE_INTERVAL', 60)),
     'optical_interval' => max(60, (int) env('OLT_OPTICAL_INTERVAL', 300)),
     'names_interval' => max(60, (int) env('OLT_NAMES_INTERVAL', 900)),
     'system_interval' => max(60, (int) env('OLT_SYSTEM_INTERVAL', 300)),
