@@ -28,13 +28,17 @@ class YotcOutputParser
     public function inventory(array $slots, array $ponPorts, array $registered): array
     {
         $boards = []; $warnings = [];
-        $boardPorts = config('olt.yotc_board_ports', ['epu8a'=>8, 'scu'=>0]);
+        $boardPorts = array_change_key_case(config('olt.yotc_board_ports', ['epu8a'=>8, 'scu'=>0]), CASE_LOWER);
         foreach ($this->rows($slots) as $row) {
             if (! is_array($row)) $this->fail();
             $slot = $this->index($row['slotId'] ?? null, 16);
             if (isset($boards[$slot])) $this->fail('Slot duplikat pada inventaris YOTC.');
             $type = $this->text($row['installType'] ?? '', 80);
-            if (! array_key_exists(strtolower($type), $boardPorts)) $this->fail('Tipe board YOTC belum diverifikasi; inventaris dipertahankan.');
+            $installStatus = strtolower($this->text($row['installStatus'] ?? '', 40));
+            if ($this->isEmptySlot($type, $installStatus)) continue;
+            if (! array_key_exists(strtolower($type), $boardPorts)) {
+                $this->fail("Tipe board YOTC '{$type}' pada slot {$slot} belum diverifikasi; inventaris dipertahankan.");
+            }
             $boards[$slot] = ['shelf'=>1, 'slot'=>$slot, 'type'=>$type,
                 'real_type'=>$this->text($row['expectType'] ?? '', 80), 'status'=>$this->text($row['runStatus'] ?? '', 80),
                 'gpon'=>false, 'port_count'=>0];
@@ -131,6 +135,16 @@ class YotcOutputParser
     {
         if (! is_scalar($value) || is_bool($value) || ! is_numeric($value) || ! is_finite((float) $value) || (float) $value < $min || (float) $value > $max) $this->fail();
         return (float) $value;
+    }
+
+    private function isEmptySlot(string $type, string $installStatus): bool
+    {
+        if (in_array($installStatus, ['uninstall', 'uninstalled', 'not install', 'not_install', 'not installed', 'empty', 'absent', 'none'], true)) {
+            return true;
+        }
+
+        return ! in_array($installStatus, ['install', 'installed'], true)
+            && in_array(strtolower($type), ['', 'none', 'null', 'empty', '-', '--', 'n/a', 'na'], true);
     }
 
     private function fail(string $message = 'Format respons YOTC tidak valid; inventaris dipertahankan.'): never

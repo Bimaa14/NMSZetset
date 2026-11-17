@@ -243,12 +243,33 @@ class YotcHttpDriverTest extends TestCase
             ['/action/getPonPortInfoAll'=>['data'=>array_slice($fixtures['/action/getPonPortInfoAll']['data'],0,7)]],
             ['/action/getAuthOnuAll'=>['data'=>[$fixtures['/action/getAuthOnuAll']['data'][0],$fixtures['/action/getAuthOnuAll']['data'][0]]]],
             ['/action/getSlotInfo'=>['data'=>[['slotId'=>1,'installType'=>'unverified-board','expectType'=>'unknown','runStatus'=>'Normal']]]],
+            ['/action/getSlotInfo'=>['data'=>[
+                ['slotId'=>1,'installType'=>'','expectType'=>'epu8a','installStatus'=>'Uninstall','runStatus'=>'--'],
+                ['slotId'=>3,'installType'=>'scu','expectType'=>'scu','installStatus'=>'Install','runStatus'=>'Normal'],
+            ]]],
         ] as $replace) {
             $this->fake($replace); $called = false;
             try { app(YotcHttpDriver::class)->snapshot($this->olt(), function () use (&$called) { $called = true; }, 'inventory'); $this->fail('Incomplete inventory accepted'); }
-            catch (OltConnectionException $error) { $this->assertSame('parse_failed', $error->reason); }
+            catch (OltConnectionException $error) {
+                $this->assertSame('parse_failed', $error->reason);
+                if (($replace['/action/getSlotInfo']['data'][0]['installType'] ?? null) === 'unverified-board') {
+                    $this->assertStringContainsString('unverified-board', $error->getMessage());
+                }
+            }
             $this->assertFalse($called);
         }
+    }
+
+    public function test_uninstalled_empty_yotc_slots_are_skipped_without_failing_inventory(): void
+    {
+        $this->fake(['/action/getSlotInfo'=>['data'=>[
+            ['slotId'=>1,'installType'=>'epu8a','expectType'=>'epu8a','installStatus'=>'Install','runStatus'=>'Normal'],
+            ['slotId'=>2,'installType'=>'','expectType'=>'epu8a','installStatus'=>'Uninstall','runStatus'=>'--'],
+            ['slotId'=>3,'installType'=>'scu','expectType'=>'scu','installStatus'=>'Install','runStatus'=>'Normal'],
+        ]]]);
+        $snapshot = app(YotcHttpDriver::class)->snapshot($this->olt(), null, 'inventory');
+        $this->assertCount(2, $snapshot['boards']);
+        $this->assertCount(8, $snapshot['ports']);
     }
 
     public function test_optical_unavailable_values_are_explicit_null_and_new_status_is_preserved(): void

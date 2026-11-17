@@ -47,6 +47,7 @@ return [
         ],
     ],
     'board_ports' => ['GTGO' => 8, 'GTGH' => 16],
+    'yotc_board_ports' => ['epu8a' => 8, 'scu' => 0],
     'snmp_retries' => 1,
     // Optional numeric vendor OIDs verified against the installed ZTE firmware/MIB.
     // No vendor-specific index or scaling is guessed.
