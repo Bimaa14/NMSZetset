@@ -10,6 +10,13 @@ class NotificationService
 {
     public function dispatchBatch(Olt $olt, array $statusChanges, array $opticalChanges = []): void
     {
+        if ($statusChanges) {
+            try {
+                app(PowerMonitorService::class)->handleOnuTransition($olt, $statusChanges);
+            } catch (Throwable) {
+            }
+        }
+
         $setting = NotificationSetting::where('tenant_id', $olt->tenant_id)->first();
         if (! $setting || (! $setting->whatsapp_enabled && ! $setting->telegram_enabled)) {
             return;
@@ -96,7 +103,61 @@ class NotificationService
         }
     }
 
-    public function sendWhatsApp(NotificationSetting $setting, string $message, ?int $oltId = null, ?int $onuId = null, string $eventType = 'test'): array
+    public function deliverPowerMessage(
+        NotificationSetting $setting,
+        string $message,
+        string $eventType,
+        ?string $waOverride = null,
+        ?int $oltId = null,
+        ?int $onuId = null,
+        ?int $powerMonitorId = null,
+        bool $strictTest = false
+    ): array {
+        $results = [];
+        $waTargets = trim((string) ($waOverride ?: $setting->power_whatsapp_recipients ?: $setting->whatsapp_recipients));
+        $canSendWa = ($setting->whatsapp_enabled || (trim((string) ($waOverride ?: $setting->power_whatsapp_recipients)) !== '' && trim((string) $setting->whatsapp_endpoint_url) !== ''))
+            && $waTargets !== '';
+
+        if ($canSendWa) {
+            $waSetting = clone $setting;
+            $waSetting->whatsapp_recipients = $waTargets;
+            try {
+                $results = array_merge($results, $this->sendWhatsApp($waSetting, $message, $oltId, $onuId, $eventType, $powerMonitorId));
+            } catch (Throwable $e) {
+                if ($strictTest) {
+                    $results[] = ['recipient' => 'WhatsApp', 'status' => 'failed', 'error' => $e->getMessage()];
+                }
+            }
+        }
+
+        $tgTargets = trim((string) ($setting->power_telegram_chat_id ?: $setting->telegram_chat_id));
+        $canSendTg = ($setting->telegram_enabled || (trim((string) $setting->power_telegram_chat_id) !== '' && trim((string) $setting->telegram_bot_token_enc) !== ''))
+            && $tgTargets !== ''
+            && trim((string) $setting->telegram_bot_token_enc) !== '';
+
+        if ($canSendTg) {
+            $tgSetting = clone $setting;
+            $tgSetting->telegram_chat_id = $tgTargets;
+            if (trim((string) $setting->power_telegram_chat_id) !== '') {
+                $tgSetting->telegram_thread_id = $setting->power_telegram_thread_id;
+            }
+            try {
+                $results = array_merge($results, $this->sendTelegram($tgSetting, $message, $oltId, $onuId, $eventType, $powerMonitorId));
+            } catch (Throwable $e) {
+                if ($strictTest) {
+                    $results[] = ['recipient' => 'Telegram', 'status' => 'failed', 'error' => $e->getMessage()];
+                }
+            }
+        }
+
+        if ($strictTest && ! $results) {
+            throw new \RuntimeException('Lengkapi Gateway WhatsApp (atau Telegram Bot) dan tujuan grup WA/Telegram terlebih dahulu.');
+        }
+
+        return $results;
+    }
+
+    public function sendWhatsApp(NotificationSetting $setting, string $message, ?int $oltId = null, ?int $onuId = null, string $eventType = 'test', ?int $powerMonitorId = null): array
     {
         $recipients = $this->parseRecipients((string) $setting->whatsapp_recipients);
         if (! $recipients) {
@@ -186,10 +247,10 @@ class NotificationService
                     throw new \RuntimeException((string) $err);
                 }
 
-                $this->log($setting->tenant_id, $oltId, $onuId, 'whatsapp', $eventType, $rawTarget, 'sent', $message);
+                $this->log($setting->tenant_id, $oltId, $onuId, 'whatsapp', $eventType, $rawTarget, 'sent', $message, null, $powerMonitorId);
                 $results[] = ['recipient' => $rawTarget, 'status' => 'sent'];
             } catch (Throwable $e) {
-                $this->log($setting->tenant_id, $oltId, $onuId, 'whatsapp', $eventType, $rawTarget, 'failed', $message, $e->getMessage());
+                $this->log($setting->tenant_id, $oltId, $onuId, 'whatsapp', $eventType, $rawTarget, 'failed', $message, $e->getMessage(), $powerMonitorId);
                 $results[] = ['recipient' => $rawTarget, 'status' => 'failed', 'error' => $e->getMessage()];
             }
         }
@@ -197,7 +258,7 @@ class NotificationService
         return $results;
     }
 
-    public function sendTelegram(NotificationSetting $setting, string $message, ?int $oltId = null, ?int $onuId = null, string $eventType = 'test'): array
+    public function sendTelegram(NotificationSetting $setting, string $message, ?int $oltId = null, ?int $onuId = null, string $eventType = 'test', ?int $powerMonitorId = null): array
     {
         $token = trim((string) ($setting->telegram_bot_token_enc ?? ''));
         if ($token === '') {
@@ -231,10 +292,10 @@ class NotificationService
                     throw new \RuntimeException((string) $err);
                 }
 
-                $this->log($setting->tenant_id, $oltId, $onuId, 'telegram', $eventType, $chatId, 'sent', $message);
+                $this->log($setting->tenant_id, $oltId, $onuId, 'telegram', $eventType, $chatId, 'sent', $message, null, $powerMonitorId);
                 $results[] = ['recipient' => $chatId, 'status' => 'sent'];
             } catch (Throwable $e) {
-                $this->log($setting->tenant_id, $oltId, $onuId, 'telegram', $eventType, $chatId, 'failed', $message, $e->getMessage());
+                $this->log($setting->tenant_id, $oltId, $onuId, 'telegram', $eventType, $chatId, 'failed', $message, $e->getMessage(), $powerMonitorId);
                 $results[] = ['recipient' => $chatId, 'status' => 'failed', 'error' => $e->getMessage()];
             }
         }
@@ -429,12 +490,13 @@ class NotificationService
         return [$digits, $digits.'@s.whatsapp.net'];
     }
 
-    private function log(int $tenantId, ?int $oltId, ?int $onuId, string $channel, string $eventType, string $recipient, string $status, string $message, ?string $error = null): void
+    private function log(int $tenantId, ?int $oltId, ?int $onuId, string $channel, string $eventType, string $recipient, string $status, string $message, ?string $error = null, ?int $powerMonitorId = null): void
     {
         NotificationLog::create([
             'tenant_id' => $tenantId,
             'olt_id' => $oltId,
             'onu_id' => $onuId,
+            'power_monitor_id' => $powerMonitorId,
             'channel' => $channel,
             'event_type' => $eventType,
             'recipient' => mb_substr($recipient, 0, 191),

@@ -22,6 +22,8 @@ class NotificationSetting extends Model
             'notify_on_bad_rx' => 'boolean',
             'bad_rx_threshold' => 'float',
             'cooldown_minutes' => 'integer',
+            'power_notify_enabled' => 'boolean',
+            'power_cooldown_minutes' => 'integer',
         ];
     }
 
@@ -46,6 +48,8 @@ class NotificationSetting extends Model
                 'notify_on_bad_rx' => true,
                 'bad_rx_threshold' => (float) config('nms.bad_rx_threshold', -27.00),
                 'cooldown_minutes' => 15,
+                'power_notify_enabled' => true,
+                'power_cooldown_minutes' => 5,
             ]
         );
     }

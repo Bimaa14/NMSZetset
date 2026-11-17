@@ -34,6 +34,9 @@ export function workspaceModules(){return {
     notificationMeta:{has_telegram_bot_token:false,has_whatsapp_api_key:false},
     notificationLogs:[],
     notificationForm:{telegram_enabled:false,telegram_bot_token:'',telegram_chat_id:'',telegram_thread_id:'',whatsapp_enabled:false,whatsapp_provider:'baileys',whatsapp_endpoint_url:'http://127.0.0.1:3001/send-message',whatsapp_api_key:'',whatsapp_session_id:'default',whatsapp_recipients:'',notify_on_los:true,notify_on_dying_gasp:true,notify_on_recovery:true,notify_on_bad_rx:true,bad_rx_threshold:-27,cooldown_minutes:15},
+    powerData:{monitors:[],groups:[],summary:{total:0,up:0,down:0,unknown:0,avg_latency_ms:null},settings:null,logs:[]},
+    powerForm:null,powerOnuOptions:[],powerFilter:{q:'',group:'all',status:'all'},powerChecking:false,powerCheckingId:null,
+    powerSettingsForm:{power_notify_enabled:true,power_whatsapp_recipients:'',power_telegram_chat_id:'',power_telegram_thread_id:'',power_cooldown_minutes:5},
     ftth:{nodes:[],assignments:[]},nodeForm:null,mapOlt:'all',assignmentForm:{node_id:'',onu_id:'',port_number:1},
     onModuleOpen(type){
         if(['profiles','provision'].includes(type))this.loadServiceProfiles();
@@ -41,10 +44,26 @@ export function workspaceModules(){return {
         if(type==='backups'){this.restoreBackupId=null;this.restorePlan=null;this.restoreRows=[];this.restoreOnuId='';this.loadBackups();}
         if(type==='api')this.loadApiTokens();
         if(['telegram','whatsapp'].includes(type)){this.notificationTab=type;this.loadNotifications();}
+        if(type==='power'){this.powerForm=null;this.loadPowerMonitors();}
         if(type==='profile')this.profileForm={name:this.db.user.name,username:this.db.user.username,current_password:'',password:'',password_confirmation:''};
         if(type==='maps'){this.nodeForm=null;this.loadFtth();}
     },
-    onModuleClose(){this.provisionForm.pppoe_password='';this.provisionPlan=null;this.newToken='';this.profileForm.current_password='';this.profileForm.password='';this.profileForm.password_confirmation='';this.notificationForm.telegram_bot_token='';this.notificationForm.whatsapp_api_key='';clearMap();},
+    onModuleClose(){this.provisionForm.pppoe_password='';this.provisionPlan=null;this.newToken='';this.profileForm.current_password='';this.profileForm.password='';this.profileForm.password_confirmation='';this.notificationForm.telegram_bot_token='';this.notificationForm.whatsapp_api_key='';this.powerForm=null;clearMap();},
+    applyPowerPayload(data){
+        this.powerData={monitors:data.monitors||[],groups:data.groups||[],summary:data.summary||{total:0,up:0,down:0,unknown:0,avg_latency_ms:null},settings:data.settings||null,logs:data.logs||[]};
+        if(data.settings)this.powerSettingsForm={power_notify_enabled:!!data.settings.power_notify_enabled,power_whatsapp_recipients:data.settings.power_whatsapp_recipients||'',power_telegram_chat_id:data.settings.power_telegram_chat_id||'',power_telegram_thread_id:data.settings.power_telegram_thread_id||'',power_cooldown_minutes:Number(data.settings.power_cooldown_minutes??5)};
+    },
+    async loadPowerMonitors(){try{const data=await this.request('/power-monitors');this.applyPowerPayload(data);}catch(e){this.showError(e);}},
+    newPowerMonitor(){this.error='';this.validationErrors={};const defaultGroup=this.powerData.groups?.[0]||'MONITORING-LISTRIK-ONU-BANDUNG';const firstOlt=this.db.olts?.[0]?.id?String(this.db.olts[0].id):'';this.powerForm={id:null,name:'',group_name:defaultGroup,location:'',monitor_type:'ping',ip_address:'',olt_id:firstOlt,onu_id:'',whatsapp_recipients_override:'',is_enabled:true};this.powerOnuOptions=[];if(firstOlt)this.loadPowerOnus(firstOlt);},
+    editPowerMonitor(m){this.error='';this.validationErrors={};const oltId=m.onu?.olt_id?String(m.onu.olt_id):(this.db.olts?.[0]?.id?String(this.db.olts[0].id):'');this.powerForm={id:m.id,name:m.name,group_name:m.group_name||'MONITORING-LISTRIK',location:m.location||'',monitor_type:m.monitor_type||'ping',ip_address:m.ip_address||'',olt_id:oltId,onu_id:m.onu_id?String(m.onu_id):'',whatsapp_recipients_override:m.whatsapp_recipients_override||'',is_enabled:!!m.is_enabled};if(oltId)this.loadPowerOnus(oltId);},
+    onPowerTypeChange(){if(this.powerForm&&this.powerForm.monitor_type!=='ping'&&this.powerForm.olt_id&&!this.powerOnuOptions.length)this.loadPowerOnus(this.powerForm.olt_id);},
+    async loadPowerOnus(oltId){if(!oltId){this.powerOnuOptions=[];return;}try{const res=await this.request('/onus?'+new URLSearchParams({olt_id:oltId,per_page:200,sort:'name',direction:'asc'}));this.powerOnuOptions=res.data||[];}catch{this.powerOnuOptions=[];}},
+    async savePowerMonitor(){if(this.busy||!this.powerForm)return;this.busy=true;this.error='';this.validationErrors={};try{const p=this.powerForm;const payload={name:p.name,group_name:p.group_name,location:p.location,monitor_type:p.monitor_type,ip_address:p.ip_address||null,onu_id:p.onu_id?Number(p.onu_id):null,whatsapp_recipients_override:p.whatsapp_recipients_override||null,is_enabled:!!p.is_enabled};const data=await this.request(p.id?'/power-monitors/'+p.id:'/power-monitors',p.id?'PUT':'POST',payload);this.applyPowerPayload(data);this.powerForm=null;await this.reload();this.notify(data.message);}catch(e){this.showError(e);}finally{this.busy=false;}},
+    async deletePowerMonitor(m){if(!confirm('Hapus sensor listrik '+m.name+'?'))return;if(this.busy)return;this.busy=true;this.error='';try{const data=await this.request('/power-monitors/'+m.id,'DELETE');this.applyPowerPayload(data);await this.reload();this.notify(data.message);}catch(e){this.showError(e);}finally{this.busy=false;}},
+    async checkAllPower(){if(this.powerChecking)return;this.powerChecking=true;this.error='';try{const data=await this.request('/power-monitors/check','POST');this.applyPowerPayload(data);await this.reload();this.notify(data.message);}catch(e){this.showError(e);}finally{this.powerChecking=false;}},
+    async checkOnePower(m){if(this.powerCheckingId)return;this.powerCheckingId=m.id;this.error='';try{const data=await this.request('/power-monitors/'+m.id+'/check','POST');this.applyPowerPayload(data);await this.reload();this.notify(data.message);}catch(e){this.showError(e);}finally{this.powerCheckingId=null;}},
+    async savePowerSettings(){if(this.busy)return;this.busy=true;this.error='';try{const data=await this.request('/power-monitors/settings','PUT',this.powerSettingsForm);this.applyPowerPayload(data);this.notify(data.message);}catch(e){this.showError(e);}finally{this.busy=false;}},
+    async testPowerAlert(){if(this.busy)return;this.busy=true;this.error='';try{const data=await this.request('/power-monitors/test','POST',this.powerSettingsForm);this.applyPowerPayload(data);this.notify(data.message);}catch(e){this.showError(e);try{await this.loadPowerMonitors();}catch{}}finally{this.busy=false;}},
     applyNotificationPayload(data){
         if(data.settings){
             this.notificationMeta={has_telegram_bot_token:!!data.settings.has_telegram_bot_token,has_whatsapp_api_key:!!data.settings.has_whatsapp_api_key};

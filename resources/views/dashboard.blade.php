@@ -21,6 +21,7 @@
             <span class="nav-caption">Workspace</span>
             <a class="nav-item active" href="/" aria-current="page"><i data-lucide="layout-dashboard"></i>Dashboard</a>
             <button class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
+            <button class="nav-item" @click="open('power')"><i data-lucide="zap"></i>Listrik</button>
             <span class="nav-divider"></span>
             <button class="nav-item" @click="open('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
             <button class="nav-item" @click="open('whatsapp')"><i data-lucide="message-circle"></i>WhatsApp</button>
@@ -65,6 +66,7 @@
                 </div>
             </div>
             <button class="panel overview-bar degradation-bar" @click="open('degradation')"><span class="bar-icon red"><i data-lucide="activity"></i></span><strong>Redaman Memburuk</strong><span class="alert-count" x-text="db.summary.degraded_onus"></span><span class="degradation-description">ONU memerlukan perhatian</span><span class="bar-time">dihitung <span x-text="db.optical_calculated_at"></span></span><span class="detail-link">Lihat detail<i data-lucide="arrow-right"></i></span></button>
+            <button class="panel overview-bar power-overview-bar" :class="{'is-down': (db.power_summary?.down ?? 0) > 0}" x-show="(db.power_summary?.total ?? 0) > 0" @click="open('power')"><span class="bar-icon" :class="(db.power_summary?.down ?? 0) > 0 ? 'red' : 'green'"><i data-lucide="zap"></i></span><strong>Monitoring Listrik</strong><span class="power-pill" :class="(db.power_summary?.down ?? 0) > 0 ? 'is-down' : 'is-up'" x-text="(db.power_summary?.down ?? 0) > 0 ? db.power_summary.down + ' Padam' : (db.power_summary?.up ?? 0) + '/' + (db.power_summary?.total ?? 0) + ' Normal'"></span><span class="degradation-description" x-text="(db.power_summary?.down ?? 0) > 0 ? ('Padam: ' + (db.power_summary.down_names || []).join(', ')) : 'Semua titik listrik & IP sensor normal'"></span><span class="detail-link">Buka panel<i data-lucide="arrow-right"></i></span></button>
         </section>
 
         <section class="search-section" aria-label="Pencarian global ONU">
@@ -116,7 +118,7 @@
         </div>
     </main>
 
-    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp'].includes(modal)}" aria-labelledby="modal-title">
+    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp','power'].includes(modal)}" aria-labelledby="modal-title">
         <div class="modal-header"><div><span class="eyebrow" x-text="selected?selected.name:'WORKSPACE · '+db.tenant.name"></span><h2 id="modal-title" x-text="modalTitle"></h2></div><button class="icon-button" @click="closeModal()" aria-label="Tutup dialog"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
             <div class="notice danger" x-ref="errorSummary" tabindex="-1" x-show="error" role="alert" x-text="error"></div>
@@ -170,6 +172,7 @@
             @include('partials.ftth')
             @include('partials.backups')
             @include('partials.notifications')
+            @include('partials.power-monitors')
             <template x-if="modal==='upgrade'"><div><div class="plan-detail"><span class="quota-icon"><i data-lucide="zap"></i></span><h3>Paket <span x-text="db.tenant.plan_type"></span></h3><p class="muted">Terpakai <strong x-text="db.olts.length+'/'+db.tenant.olt_quota"></strong> OLT · aktif hingga <span x-text="expiry"></span></p></div><div class="notice">Kuota paket hanya dapat diubah oleh Super Admin. Hubungi pengelola platform untuk menambah kapasitas. Pembayaran dan aktivasi paket belum tersedia pada tahap ini.</div><div class="modal-actions"><button class="btn primary" @click="closeModal()">Mengerti</button></div></div></template>
             <template x-if="modal==='balance'"><div><span class="eyebrow">SALDO WORKSPACE</span><h3 class="balance-amount" x-text="money(db.tenant.balance)"></h3><p class="muted">Saldo data demo. Persetujuan top-up dikelola Super Admin.</p><div class="notice">Top-up dan riwayat transaksi tersedia setelah modul pembayaran diaktifkan.</div></div></template>
             @include('partials.api-tokens')

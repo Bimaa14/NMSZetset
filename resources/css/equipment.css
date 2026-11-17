@@ -533,3 +533,90 @@ button.equipment-stat:focus-visible {
     .olt-mini-rack { margin: 0 16px 4px; }
     .rack-topbar { flex-direction: column; align-items: flex-start; }
 }
+
+/* 6. Power Monitoring (PLN / Ping + ONU) & Inline Checkboxes */
+.form-stack label.checkbox-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    color: var(--text);
+}
+.power-overview-bar {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--green) 7%, var(--panel)), var(--panel) 55%);
+    border-left: 3px solid var(--green) !important;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.power-overview-bar.is-down {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--red) 10%, var(--panel)), var(--panel) 55%);
+    border-left-color: var(--red) !important;
+}
+.power-overview-bar .bar-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+.power-overview-bar.is-down .bar-icon {
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+.power-overview-bar .detail-link {
+    margin-left: auto;
+}
+.power-pill {
+    font-size: 10px;
+    font-weight: 650;
+    padding: 2px 9px;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+.power-pill.is-up {
+    color: var(--green);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--green) 24%, transparent);
+}
+.power-pill.is-down {
+    color: var(--red);
+    background: color-mix(in srgb, var(--red) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+}
+.power-hero-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+.power-kpi {
+    border: 1px solid var(--line);
+    background: var(--input);
+    border-radius: 12px;
+    padding: 15px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.power-kpi > span {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.power-kpi > strong {
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.6px;
+    font-variant-numeric: tabular-nums;
+}
+.power-kpi.is-down.has-down {
+    border-color: color-mix(in srgb, var(--red) 45%, var(--line));
+    box-shadow: 0 0 18px -6px rgba(244, 63, 94, 0.25);
+}
+@media (max-width: 767px) {
+    .power-hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

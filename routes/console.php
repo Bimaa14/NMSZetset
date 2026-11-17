@@ -9,6 +9,12 @@ Artisan::command('nms:tick', function () {
 })->purpose('Schedule due OLT inventory, labels, optics and system reads');
 Schedule::command('nms:tick')->everyMinute()->withoutOverlapping();
 
+Artisan::command('nms:power-check', function () {
+    $count = app(\App\Services\PowerMonitorService::class)->checkAllDue();
+    $this->info($count.' sensor listrik diperiksa.');
+})->purpose('Ping power monitoring sensors and send PLN outage/recovery alerts');
+Schedule::command('nms:power-check')->everyMinute()->withoutOverlapping();
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
@@ -17,6 +23,7 @@ Artisan::command('nms:monitor {--once}', function () {
     do {
         $lock=\Illuminate\Support\Facades\Cache::lock('nms:monitor:tick',20);
         if($lock->get()) { try { app(\App\Services\Olt\OltOperationService::class)->tick(); } finally { $lock->release(); } }
+        try { app(\App\Services\PowerMonitorService::class)->checkAllDue(); } catch (\Throwable) {}
         if(!\Illuminate\Support\Facades\Cache::has('nms:retention:done:'.now()->toDateString())) {
             $retentionLock=\Illuminate\Support\Facades\Cache::lock('nms:retention',3600);
             if($retentionLock->get()){try{app(\App\Services\HistoryRetention::class)->run(true);\Illuminate\Support\Facades\Cache::put('nms:retention:done:'.now()->toDateString(),true,172800);}finally{$retentionLock->release();}}

@@ -46,12 +46,14 @@ class DashboardController extends Controller
             foreach (['cpu','temperature','uptime','firmware_version','memory_usage'] as $key) $olt->setAttribute($key, $metrics[$key] ?? null);
         }
         $ops = \App\Models\OltOperation::where('tenant_id',$tenant->id)->whereIn('id',fn($q)=>$q->selectRaw('MAX(id)')->from('olt_operations')->where('tenant_id',$tenant->id)->groupBy('olt_id'))->get()->keyBy('olt_id');
+        $powerRows = \App\Models\PowerMonitor::where('tenant_id', $tenant->id)->where('is_enabled', true)->get(['id', 'name', 'status']);
         return [
             'active_operations'=>\App\Models\OltOperation::where('tenant_id',$tenant->id)->whereIn('status',['queued','running'])->latest('id')->get(),'recent_operations'=>\App\Models\OltOperation::where('tenant_id',$tenant->id)->whereNotNull('completed_at')->latest('completed_at')->latest('id')->limit(100)->get(), 'operations'=>$ops, 'monitor'=>['scheduler'=>\Illuminate\Support\Facades\Cache::get('nms:monitor:heartbeat'),'worker'=>\Illuminate\Support\Facades\Cache::get('nms:worker:heartbeat')],
             'user' => $user->only('id', 'name', 'username', 'email', 'role', 'preferences'), 'tenant' => $tenant,
             'permissions' => collect(['read', 'operate', 'manage', 'cli', 'maps', 'tags', 'staff', 'audit', 'api', 'subscription'])->mapWithKeys(fn ($p) => [$p => $user->allows($p)]),
             'olts' => $olts, 'onus' => $onus, 'compact'=>$compact,
             'summary'=>['total_onus'=>$olts->sum('onus_count'),'online_onus'=>$olts->sum('online_onu'),'los_onus'=>$tenant->onus()->current()->where('phase_state','los')->count(),'weak_onus'=>$tenant->onus()->current()->where('rx_power','<=',config('nms.bad_rx_threshold'))->count(),'degraded_onus'=>count(app(\App\Services\OpticalAnalysis::class)->forTenant($tenant->id)['degraded_ids'])],
+            'power_summary'=>['total'=>$powerRows->count(),'up'=>$powerRows->where('status','up')->count(),'down'=>$powerRows->where('status','down')->count(),'down_names'=>$powerRows->where('status','down')->pluck('name')->values()->all()],
             'staff' => $user->allows('staff') ? $tenant->users()->get(['id', 'name', 'username', 'email', 'role']) : [],
             'tags' => Tag::where('tenant_id', $tenant->id)->withCount(['onus'=>fn($q)=>$q->current()])->get(),
             'audit' => $user->allows('audit') ? AuditLog::where('tenant_id', $tenant->id)->latest('id')->limit(100)->get() : [],
