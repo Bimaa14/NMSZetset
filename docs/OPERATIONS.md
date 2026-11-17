@@ -27,7 +27,7 @@ Migrasi menambahkan `olts.firmware_version` dan metadata siklus reboot ONU. Tida
 Form menyediakan Nama OLT, chassis C320/C300, IP private/public (IPv4/IPv6), port Telnet, username, password, port SNMP, community, dan lokasi.
 
 - Tambah membutuhkan username, password, dan community. Nilai IP/port dan keunikan nama/koneksi diperiksa di server.
-- Edit mengambil konfigurasi melalui endpoint khusus Owner. Password/community tidak pernah dibaca kembali ke browser. Kolom kosong mempertahankan nilai tersimpan; nilai baru menggantinya.
+- Edit mengambil konfigurasi melalui endpoint khusus Owner/NOC. Password/community tidak pernah dibaca kembali ke browser. Kolom kosong mempertahankan nilai tersimpan; nilai baru menggantinya.
 - Field request `telnet_password` dipetakan ke database `telnet_pass_enc`; `snmp_community` ke `snmp_community_enc`. Kedua kolom memakai Laravel encrypted cast. Username tetap `telnet_user`.
 - Rahasia tidak masuk audit, JSON dashboard, settings response, localStorage, atau old-input session. Spasi dalam rahasia dipertahankan.
 - Form Tambah tetap dapat dibuka ketika kuota penuh, dengan penjelasan kuota. Penyimpanan tetap dibatasi server.
@@ -52,7 +52,7 @@ Form menyediakan Nama OLT, chassis C320/C300, IP private/public (IPv4/IPv6), por
 
 Label teks mendampingi warna. Batas waspada -25 dBm adalah konvensi UI demo; ambang buruk tetap mengikuti PRD.
 
-**Hapus:** hanya Owner, melalui dialog konfirmasi. Port/ONU/log optik/pivot terkait dihapus lewat foreign key; `olt.delete` tersimpan, dengan olt_id null setelah OLT dihapus.
+**Hapus:** hanya Owner/NOC, melalui dialog konfirmasi. Port/ONU/log optik/pivot terkait dihapus lewat foreign key; `olt.delete` tersimpan, dengan olt_id null setelah OLT dihapus.
 
 ## Reboot ONU
 

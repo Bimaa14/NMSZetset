@@ -36,7 +36,7 @@ Polling rutin berlangsung tanpa progress bar pada kartu OLT. Progress hijau hany
 
 Kegagalan metrik opsional mendapat jeda retry minimal 120 detik atau sepanjang interval metrik tersebut, mana yang lebih lama. SNMP yang tidak tersedia tidak menghalangi pembacaan nama, optik, dan sistem melalui Telnet.
 
-Monitor berjalan terpisah dari browser. OLT simulator tidak dipoll otomatis. Mode real yang gagal tidak berubah menjadi simulator. Pemantauan per OLT dapat dijeda/diaktifkan oleh Owner melalui detail perangkat.
+Monitor berjalan terpisah dari browser. OLT simulator tidak dipoll otomatis. Mode real yang gagal tidak berubah menjadi simulator. Pemantauan per OLT dapat dijeda/diaktifkan oleh Owner/NOC melalui detail perangkat.
 
 ## Sync background
 
@@ -62,7 +62,7 @@ Kehilangan respons setelah write ditandai sebagai hasil yang perlu diperiksa, ta
 
 ## Provisioning dan profil layanan
 
-Owner membuat profil: pendaftaran saja, bridge, PPPoE OMCI, atau template CLI. Nama tipe ONU, profil bandwidth, VLAN dan WAN profile diisi sesuai konfigurasi yang benar-benar tersedia pada perangkat. Template mendukung parameter posisi/SN/nama dan kredensial PPPoE; rahasia tidak disimpan dalam template.
+Owner/NOC membuat profil: pendaftaran saja, bridge, PPPoE OMCI, atau template CLI. Nama tipe ONU, profil bandwidth, VLAN dan WAN profile diisi sesuai konfigurasi yang benar-benar tersedia pada perangkat. Template mendukung parameter posisi/SN/nama dan kredensial PPPoE; rahasia tidak disimpan dalam template.
 
 Wizard Pasang ONU:
 
@@ -91,7 +91,7 @@ Profil pengguna dapat mengubah nama/email/password dengan verifikasi password sa
 
 Traffic memakai [IF-MIB RFC 2863](https://www.rfc-editor.org/info/rfc2863/): `ifName`, `ifHCInOctets`, `ifHCOutOctets` dan `ifCounterDiscontinuityTime`. Pemetaan harus cocok dengan nama interface GPON yang tersimpan. Tidak ada tebakan ifIndex/OID vendor. Dua sampel counter diperlukan; pergantian interface/ONU, reset uptime/counter atau discontinuity membatalkan delta. Pengurangan Counter64 memakai integer presisi penuh. Interface yang tidak dilaporkan tetap kosong. Arah keluar OLT ditampilkan sebagai download pelanggan, masuk OLT sebagai upload.
 
-Backup membaca `show running-config` melalui jalur internal, menyimpannya dengan Laravel encrypted cast dan SHA-256, serta menyediakan unduhan khusus Owner. Respons daftar backup menyembunyikan konfigurasi; audit hanya mencatat identitas backup. Cadangan yang diunduh dapat memuat rahasia perangkat. Pemulihan otomatis seluruh konfigurasi belum disediakan.
+Backup membaca `show running-config` melalui jalur internal, menyimpannya dengan Laravel encrypted cast dan SHA-256, serta menyediakan unduhan khusus Owner/NOC. Respons daftar backup menyembunyikan konfigurasi; audit hanya mencatat identitas backup. Cadangan yang diunduh dapat memuat rahasia perangkat. Pemulihan otomatis seluruh konfigurasi belum disediakan.
 
 ## Verifikasi dan batas dukungan
 

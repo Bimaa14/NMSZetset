@@ -1,5 +1,5 @@
 <template x-if="modal==='backups' && selected"><div class="form-stack">
-    <p class="muted">Konfigurasi dibaca dari OLT dan disimpan terenkripsi pada server. Pemantauan menjadwalkan backup setiap 24 jam. Unduhan hanya tersedia untuk Owner.</p>
+    <p class="muted">Konfigurasi dibaca dari OLT dan disimpan terenkripsi pada server. Pemantauan menjadwalkan backup setiap 24 jam. Unduhan tersedia untuk Owner dan NOC.</p>
     <div class="module-toolbar"><button class="btn primary" @click="createBackup()" :disabled="isActive(operation(selected))">Buat backup sekarang</button><button class="btn secondary" @click="loadBackups()">Muat ulang backup</button></div>
     <p class="muted" x-show="isActive(operation(selected))" x-text="operation(selected)?.current_step"></p>
     <div class="table-scroll"><table><thead><tr><th>Dibuat</th><th>Ukuran</th><th>SHA-256</th><th>Aksi</th></tr></thead><tbody><template x-for="backup in backups" :key="backup.id"><tr><td x-text="dateTime(backup.created_at)"></td><td x-text="backup.bytes+' byte'"></td><td class="mono" x-text="backup.checksum.slice(0,16)+'…'"></td><td><a class="text-button" :href="'/backups/'+backup.id+'/download'">Unduh konfigurasi</a> <button class="text-button" @click="chooseRestore(backup)" :disabled="restoreBusy">Pulihkan layanan ONU</button></td></tr></template></tbody></table></div>

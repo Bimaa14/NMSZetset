@@ -240,7 +240,9 @@ class RealOltTest extends TestCase
         unset($input['olt_id']); $input['telnet_password']='test-secret';
         $this->postJson('/olts/test-connection',$input)->assertOk();
         $this->assertSame(22,$this->owner()->tenant->olts()->count());
-        $this->actingAs(User::where('role','noc')->first())->postJson('/olts/test-connection',$input)->assertForbidden();
+        $this->actingAs(User::where('role','noc')->first())->postJson('/olts/test-connection',$input)->assertOk()->assertJsonPath('source','real');
+        $this->actingAs(User::where('role','cs')->first())->postJson('/olts/test-connection',$input)->assertForbidden();
+        $this->actingAs(User::where('role','teknisi')->first())->postJson('/olts/test-connection',$input)->assertForbidden();
     }
 
     public function test_unknown_metrics_are_not_shown_as_old_simulator_values(): void

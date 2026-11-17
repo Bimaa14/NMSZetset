@@ -58,12 +58,14 @@ class PhysicalProvisioningTest extends TestCase {
         $p=$this->postJson('/olts/'.$olt->id.'/provision/preview',['profile_id'=>$profile->id,'frame'=>1,'slot'=>1,'port'=>3,'onu_index'=>2,'sn'=>'ZTEGC9945478','name'=>'NEW'])->assertOk()->json();
         $this->postJson('/olts/'.$olt->id.'/provision/apply',['plan_id'=>$p['plan']['id'],'confirmation_token'=>$p['confirmation_token']])->assertStatus(502)->assertJsonPath('plan.status','uncertain');
     }
-    public function test_backup_keeps_secrets_encrypted_and_requires_owner_for_download():void{
+    public function test_backup_keeps_secrets_encrypted_and_restricts_download_to_authorized_roles():void{
         [$olt]=$this->prepare();$real=app(\App\Services\Olt\RealOltOperations::class);$real->poll($olt,'backup');
         $backup=\App\Models\OltBackup::firstOrFail();$this->assertStringNotContainsString('test-secret',$backup->getRawOriginal('configuration'));$this->assertStringContainsString('test-secret',$backup->configuration);
         $this->getJson('/olts/'.$olt->id.'/backups')->assertOk()->assertDontSee('test-secret')->assertDontSee('test-community');
         $this->get('/backups/'.$backup->id.'/download')->assertOk()->assertSee('test-secret');
-        $this->actingAs(User::where('role','noc')->first())->get('/backups/'.$backup->id.'/download')->assertForbidden();
+        $this->actingAs(User::where('role','noc')->first())->get('/backups/'.$backup->id.'/download')->assertOk()->assertSee('test-secret');
+        $this->actingAs(User::where('role','cs')->first())->get('/backups/'.$backup->id.'/download')->assertForbidden();
+        $this->actingAs(User::where('role','teknisi')->first())->get('/backups/'.$backup->id.'/download')->assertForbidden();
         $this->actingAs(User::where('email','owner@nusantara.test')->first())->get('/backups/'.$backup->id.'/download')->assertNotFound();
     }
     public function test_real_onu_rename_admin_and_delete_verify_the_device_result():void{

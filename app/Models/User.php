@@ -58,7 +58,7 @@ class User extends Authenticatable
     {
         return in_array($ability, match ($this->role) {
             'isp_owner' => ['read', 'operate', 'manage', 'cli', 'maps', 'tags', 'staff', 'audit', 'api', 'subscription'],
-            'noc' => ['read', 'operate', 'cli', 'maps', 'tags'],
+            'noc' => ['read', 'operate', 'manage', 'cli', 'maps', 'tags'],
             'cs' => ['read'],
             'teknisi' => ['read', 'maps'],
             default => [],

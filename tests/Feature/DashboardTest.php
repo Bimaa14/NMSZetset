@@ -48,18 +48,46 @@ class DashboardTest extends TestCase
         $this->getJson('/dashboard/data')->assertOk()->assertJsonPath('permissions.manage', false)->assertJsonCount(0, 'staff')->assertJsonCount(0, 'audit');
     }
 
-    public function test_noc_cannot_create_edit_or_delete_olt(): void
+    public function test_noc_can_manage_olts_and_profiles_but_cannot_access_owner_only_modules(): void
     {
         $user = User::where('role', 'noc')->firstOrFail(); $olt = $user->tenant->olts()->first();
-        $this->actingAs($user)->getJson('/dashboard/data')->assertJsonPath('permissions.operate', true)->assertJsonPath('permissions.cli', true)->assertJsonPath('permissions.manage', false);
-        $this->putJson('/olts/'.$olt->id, $this->input())->assertForbidden();
-        $this->deleteJson('/olts/'.$olt->id)->assertForbidden();
+        $this->actingAs($user)->getJson('/dashboard/data')
+            ->assertOk()
+            ->assertJsonPath('permissions.operate', true)
+            ->assertJsonPath('permissions.cli', true)
+            ->assertJsonPath('permissions.manage', true)
+            ->assertJsonPath('permissions.staff', false)
+            ->assertJsonPath('permissions.audit', false)
+            ->assertJsonPath('permissions.api', false)
+            ->assertJsonPath('permissions.subscription', false)
+            ->assertJsonCount(0, 'staff')
+            ->assertJsonCount(0, 'audit');
+        $this->postJson('/olts', $this->input())->assertUnprocessable();
+        config(['nms.subscription' => false]);
+        $this->postJson('/olts', $this->input())->assertCreated();
+        $created = Olt::where('name', 'OLT-TEST')->firstOrFail();
+        $this->putJson('/olts/'.$created->id, array_merge($this->input(), ['location' => 'Cabang Baru']))->assertOk();
+        $this->putJson('/olts/'.$created->id.'/monitoring', ['monitoring_enabled' => false])->assertOk();
+        $this->assertDatabaseHas('olts', ['id' => $created->id, 'location' => 'Cabang Baru', 'monitoring_enabled' => false]);
+        $this->deleteJson('/olts/'.$created->id)->assertOk();
+        $this->assertDatabaseMissing('olts', ['id' => $created->id]);
+        $profileId = $this->postJson('/service-profiles', ['name' => 'NOC-Profile', 'onu_type' => 'F609', 'mode' => 'registration'])->assertCreated()->json('profile.id');
+        $this->deleteJson('/service-profiles/'.$profileId)->assertOk();
+        $otherOlt = Olt::where('name', 'OLT-TENANT-LAIN')->firstOrFail();
+        $this->putJson('/olts/'.$otherOlt->id, $this->input())->assertNotFound();
+        $this->deleteJson('/olts/'.$otherOlt->id)->assertNotFound();
+        $this->getJson('/audit')->assertForbidden();
+        $this->getJson('/api-tokens')->assertForbidden();
+        $this->postJson('/staff', [])->assertForbidden();
     }
 
-    public function test_technician_can_read_maps_but_cannot_sync_or_use_cli(): void
+    public function test_technician_can_read_maps_but_cannot_manage_sync_or_use_cli(): void
     {
         $user = User::where('role', 'teknisi')->firstOrFail(); $olt = $user->tenant->olts()->first();
-        $this->actingAs($user)->getJson('/dashboard/data')->assertOk()->assertJsonPath('permissions.maps', true)->assertJsonPath('permissions.operate', false);
+        $this->actingAs($user)->getJson('/dashboard/data')->assertOk()->assertJsonPath('permissions.maps', true)->assertJsonPath('permissions.operate', false)->assertJsonPath('permissions.manage', false);
+        $this->postJson('/olts', $this->input())->assertForbidden();
+        $this->putJson('/olts/'.$olt->id, $this->input())->assertForbidden();
+        $this->deleteJson('/olts/'.$olt->id)->assertForbidden();
         $this->postJson('/olts/'.$olt->id.'/sync')->assertForbidden();
         $this->postJson('/olts/'.$olt->id.'/cli', ['command' => 'help'])->assertForbidden();
     }

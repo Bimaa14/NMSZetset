@@ -27,7 +27,7 @@ Seluruh `prd.txt` dibaca sebelum implementasi. Lingkup pekerjaan mengikuti permi
 | --- | --- | --- | --- | --- |
 | Cari ONU, View, Port, ONU, redaman | Ya | Ya | Ya | Ya |
 | Sync / CLI / Reboot ONU | Ya | Ya | Tidak | Tidak |
-| Tambah / Edit / Hapus OLT | Ya | Tidak | Tidak | Tidak |
+| Tambah / Edit / Hapus OLT | Ya | Ya | Tidak | Tidak |
 | FTTH Maps | Ya | Ya | Tidak | Ya |
 | Tags operasional | Ya | Ya | Tidak | Tidak |
 | Staff, Audit, API, SaaS | Ya | Tidak | Tidak | Tidak |

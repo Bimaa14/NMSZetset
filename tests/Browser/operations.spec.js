@@ -115,7 +115,8 @@ test('staff create, role update, login permissions and deletion are functional',
         await staffPage.getByLabel('Kata sandi').fill('BrowserStaffPassword12!');
         await staffPage.getByRole('button',{name:'Masuk ke dashboard'}).click();
         await expect(staffPage.locator('.profile-copy small')).toHaveText('NOC');
-        await expect(staffPage.getByRole('button',{name:'Tambah OLT',exact:true})).not.toBeVisible();
+        await expect(staffPage.getByRole('button',{name:'Tambah OLT',exact:true})).toBeVisible();
+        await expect(staffPage.getByRole('button',{name:'Staff',exact:true})).not.toBeVisible();
         await expect(staffPage.locator('.olt-card').first().getByRole('button',{name:'Sync',exact:true})).toBeVisible();
         await page.getByRole('button',{name:'Edit staff Staff Browser Uji',exact:true}).click();
         await page.getByLabel('Role staff',{exact:true}).selectOption('cs');
@@ -123,6 +124,7 @@ test('staff create, role update, login permissions and deletion are functional',
         await expect(row).toContainText('CS');
         await staffPage.reload();
         await expect(staffPage.locator('.profile-copy small')).toHaveText('CS');
+        await expect(staffPage.getByRole('button',{name:'Tambah OLT',exact:true})).not.toBeVisible();
         await expect(staffPage.locator('.olt-card').first().getByRole('button',{name:'Sync',exact:true})).not.toBeVisible();
         await page.getByRole('button',{name:'Hapus staff Staff Browser Uji',exact:true}).click();
         await page.getByRole('button',{name:'Ya, hapus staff',exact:true}).click();

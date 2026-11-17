@@ -40,7 +40,10 @@ class OperationsTest extends TestCase
         $this->assertSame('replacement-secret', $olt->fresh()->telnet_pass_enc);
         $this->assertStringNotContainsString('replacement-secret',$this->getJson('/dashboard/data')->getContent());
         $this->assertStringNotContainsString('secret',AuditLog::all()->toJson());
-        $this->actingAs($this->user('noc'))->getJson('/olts/'.$olt->id.'/settings')->assertForbidden();
+        $nocSettings = $this->actingAs($this->user('noc'))->getJson('/olts/'.$olt->id.'/settings')->assertOk()->assertJsonPath('telnet_user','zxan-admin');
+        $this->assertStringNotContainsString('replacement-secret',$nocSettings->getContent());
+        $this->actingAs($this->user('cs'))->getJson('/olts/'.$olt->id.'/settings')->assertForbidden();
+        $this->actingAs($this->user('teknisi'))->getJson('/olts/'.$olt->id.'/settings')->assertForbidden();
     }
 
     public function test_invalid_credentials_and_chassis_do_not_create_a_device(): void

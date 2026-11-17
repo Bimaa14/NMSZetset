@@ -8,7 +8,7 @@ Kode menghubungi socket TCP Telnet/SSH dan SNMP UDP, bukan simulator ketika `con
 
 1. Jalankan `composer install`, `php artisan migrate`, `npm ci`, dan `npm run build` untuk memperbarui instalasi lama. Pada workspace ini dependensi, migrasi dan build telah disiapkan. Jangan mengganti APP_KEY karena kredensial lama memakai kunci tersebut.
 2. Jalankan `./start.ps1`. Server NMS harus memiliki rute ke IP OLT, dan ACL/firewall perangkat harus mengizinkan koneksi dari server tersebut. IP private/public IPv4/IPv6 diterima; tidak diperlukan IP public untuk LAN kantor.
-3. Sebagai ISP Owner, buka Edit OLT atau Tambah OLT. Masukkan model C300/C320, IP, port CLI, username/password, port SNMP/community, dan timeout koneksi.
+3. Sebagai ISP Owner atau NOC, buka Edit OLT atau Tambah OLT. Masukkan model C300/C320, IP, port CLI, username/password, port SNMP/community, dan timeout koneksi.
 4. Pilih transport Telnet atau SSH dan `connection_mode=real`. Nama kolom port tetap `telnet_port`, termasuk jika transport SSH; gunakan port SSH yang dikonfigurasi, umumnya 22. Port Telnet umumnya 23. Transport dipilih eksplisit, tidak ditebak dari nomor port.
 5. Klik **Test Connection**. Pengujian selalu nyata, bahkan saat pilihan mode masih simulator. Pilih CLI, SNMP, atau keduanya. Pengujian tidak menyimpan form/inventaris dan dapat dilakukan meskipun kuota penuh.
 6. Simpan, lalu jalankan Sync. View/Info menyajikan snapshot lalu menjadwalkan metrik sistem; Port menjadwalkan inventaris tanpa menunggu optik. Jika OLT besar, sesuaikan batas waktu aplikasi/reverse proxy dengan `OLT_OPERATION_TIMEOUT`.

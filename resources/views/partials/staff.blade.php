@@ -1,7 +1,7 @@
 <template x-if="modal==='staff'">
     <div>
         <div class="module-heading"><p class="muted">Kelola akun dan role anggota workspace.</p><button class="btn primary" @click="editStaff()" :disabled="busy"><i data-lucide="plus"></i>Tambah Staff</button></div>
-        <div class="role-guide"><span><strong>NOC</strong>Operasional OLT/ONU, CLI, Tags, Maps</span><span><strong>CS</strong>Pencarian dan baca data jaringan</span><span><strong>Teknisi</strong>Baca data dan Maps</span></div>
+        <div class="role-guide"><span><strong>NOC</strong>Kelola OLT/ONU, Profil Layanan, CLI, Tags, Maps</span><span><strong>CS</strong>Pencarian dan baca data jaringan</span><span><strong>Teknisi</strong>Baca data dan Maps</span></div>
         <template x-if="staffForm">
             <form class="inline-editor form-stack" @submit.prevent="saveStaff()">
                 <h3 x-text="staffForm.id?'Edit Staff':'Tambah Staff'"></h3>
