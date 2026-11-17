@@ -10,8 +10,17 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        $input = $request->validate(['email' => 'required|email', 'password' => 'required|string']);
-        if (!Auth::attempt($input)) return back()->withErrors(['email' => 'Email atau kata sandi tidak sesuai.'])->onlyInput('email');
+        if (!$request->filled('username') && $request->filled('email')) {
+            $request->merge(['username' => $request->input('email')]);
+        }
+        $input = $request->validate(['username' => 'required|string|max:254', 'password' => 'required|string']);
+        $identifier = User::normalizeUsername($input['username']);
+        $user = User::where('username', $identifier)
+            ->when(str_contains($identifier, '@'), fn ($q) => $q->orWhereRaw('LOWER(email) = ?', [$identifier]))
+            ->first();
+        if (!$user || !Auth::attempt(['username' => $user->username, 'password' => $input['password']])) {
+            return back()->withErrors(['username' => 'Username atau kata sandi tidak sesuai.'])->onlyInput('username');
+        }
         $request->session()->regenerate(); $request->session()->forget('logged_out');
         $request->session()->put('demo_initialized', true);
         return redirect('/');
@@ -20,7 +29,7 @@ class AuthController extends Controller
     {
         abort_unless(app()->environment('local') && config('nms.demo'), 404);
         $input = $request->validate(['role' => 'required|in:isp_owner,noc,cs,teknisi']);
-        Auth::login(User::where('email', $input['role'].'@bima.test')->firstOrFail());
+        Auth::login(User::where('username', $input['role'])->orWhere('email', $input['role'].'@bima.test')->firstOrFail());
         $request->session()->regenerate(); $request->session()->forget('logged_out');
         $request->session()->put('demo_initialized', true);
         return redirect('/');

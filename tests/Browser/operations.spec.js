@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('credentials, create/edit/delete OLT and quota work in another tenant', async ({ page }) => {
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     await page.goto('/login');
-    await page.getByLabel('Email', {exact:true}).fill('owner@nusantara.test');
+    await page.getByLabel('Username', {exact:true}).fill('owner_nusantara');
     await page.getByLabel('Kata sandi').fill('NmsDemo2026!');
     await page.getByRole('button',{name:'Masuk ke dashboard'}).click();
     await expect(page.locator('.olt-card')).toHaveCount(1);
@@ -98,21 +98,21 @@ test('staff create, role update, login permissions and deletion are functional',
     await page.getByRole('button',{name:'Staff',exact:true}).click();
     await page.getByRole('button',{name:'Tambah Staff',exact:true}).click();
     await page.getByLabel('Nama staff',{exact:true}).fill('Staff Browser Uji');
-    await page.getByLabel('Email staff',{exact:true}).fill('browser-staff@bima.test');
-    await page.getByLabel('Password staff',{exact:true}).fill('BrowserStaffPassword12!');
+    await page.getByLabel('Username',{exact:true}).fill('browser_staff');
+    await page.getByLabel('Password staff',{exact:true}).fill('Staff6');
     await page.getByRole('button',{name:'Simpan staff',exact:true}).click();
-    await expect(page.locator('dialog tbody')).toContainText('browser-staff@bima.test');
+    await expect(page.locator('dialog tbody')).toContainText('browser_staff');
     await page.getByRole('button',{name:'Edit staff Staff Browser Uji',exact:true}).click();
     await page.getByLabel('Role staff',{exact:true}).selectOption('noc');
     await page.getByRole('button',{name:'Simpan staff',exact:true}).click();
-    const row=page.locator('dialog tbody tr').filter({hasText:'browser-staff@bima.test'});
+    const row=page.locator('dialog tbody tr').filter({hasText:'browser_staff'});
     await expect(row).toContainText('NOC');
     const context=await browser.newContext();
     try {
         const staffPage=await context.newPage();
         await staffPage.goto(new URL('/login',page.url()).toString());
-        await staffPage.getByLabel('Email',{exact:true}).fill('browser-staff@bima.test');
-        await staffPage.getByLabel('Kata sandi').fill('BrowserStaffPassword12!');
+        await staffPage.getByLabel('Username',{exact:true}).fill('browser_staff');
+        await staffPage.getByLabel('Kata sandi').fill('Staff6');
         await staffPage.getByRole('button',{name:'Masuk ke dashboard'}).click();
         await expect(staffPage.locator('.profile-copy small')).toHaveText('NOC');
         await expect(staffPage.getByRole('button',{name:'Tambah OLT',exact:true})).toBeVisible();

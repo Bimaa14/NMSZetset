@@ -12,7 +12,7 @@ class DemoSession
     public function handle(Request $request, Closure $next)
     {
         if (app()->environment('local') && config('nms.demo') && !Auth::check() && !$request->session()->get('logged_out') && !$request->session()->get('demo_initialized') && $request->is('/')) {
-            $user = User::where('email', 'isp_owner@bima.test')->first();
+            $user = User::where('username', 'isp_owner')->orWhere('email', 'isp_owner@bima.test')->first();
             if ($user) { Auth::login($user); $request->session()->regenerate(); $request->session()->put('demo_initialized', true); }
         }
         return $next($request);

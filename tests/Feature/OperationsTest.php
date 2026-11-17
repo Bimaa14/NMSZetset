@@ -116,12 +116,16 @@ class OperationsTest extends TestCase
 
     public function test_staff_management_cannot_promote_owner_or_cross_tenant_and_password_is_hashed(): void
     {
-        $this->actingAs($this->user())->postJson('/staff',['name'=>'Staff Test','email'=>'staff-test@bima.test','role'=>'cs','password'=>'SafeStaffPassword12!'])->assertCreated();
-        $staff=User::where('email','staff-test@bima.test')->firstOrFail();
-        $this->assertTrue(Hash::check('SafeStaffPassword12!',$staff->password));
-        $this->putJson('/staff/'.$staff->id,['name'=>'Staff Test','email'=>$staff->email,'role'=>'noc','password'=>''])->assertOk();
+        $this->actingAs($this->user())->postJson('/staff',['name'=>'Staff Test','username'=>'staff-test','role'=>'cs','password'=>'12345'])->assertUnprocessable()->assertJsonValidationErrors(['password']);
+        $this->postJson('/staff',['name'=>'Staff Test','username'=>'Staff-Test','role'=>'cs','password'=>'Safe66'])->assertCreated();
+        $staff=User::where('username','staff-test')->firstOrFail();
+        $this->assertNull($staff->email);
+        $this->assertTrue(Hash::check('Safe66',$staff->password));
+        $this->post('/login',['username'=>'Staff-Test','password'=>'Safe66'])->assertRedirect('/');
+        $this->post('/logout')->assertRedirect('/login');
+        $this->actingAs($this->user())->putJson('/staff/'.$staff->id,['name'=>'Staff Test','username'=>$staff->username,'role'=>'noc','password'=>''])->assertOk();
         $this->assertTrue($staff->fresh()->allows('operate'));
-        $this->putJson('/staff/'.$staff->id,['name'=>'Staff Test','email'=>$staff->email,'role'=>'isp_owner'])->assertUnprocessable();
+        $this->putJson('/staff/'.$staff->id,['name'=>'Staff Test','username'=>$staff->username,'role'=>'isp_owner'])->assertUnprocessable();
         $this->deleteJson('/staff/'.$this->user()->id)->assertForbidden();
         $other=User::where('email','owner@nusantara.test')->firstOrFail();
         $this->deleteJson('/staff/'.$other->id)->assertNotFound();
@@ -134,7 +138,9 @@ class OperationsTest extends TestCase
     public function test_role_change_affects_existing_session_on_next_request(): void
     {
         $staff=$this->user('noc');
-        $this->post('/login',['email'=>$staff->email,'password'=>'NmsDemo2026!'])->assertRedirect('/');
+        $this->post('/login',['username'=>$staff->email,'password'=>'NmsDemo2026!'])->assertRedirect('/');
+        $this->post('/logout')->assertRedirect('/login');
+        $this->post('/login',['username'=>$staff->username,'password'=>'NmsDemo2026!'])->assertRedirect('/');
         $this->getJson('/dashboard/data')->assertJsonPath('permissions.operate',true);
         // Simulate Owner changing this account from a different session.
         User::whereKey($staff->id)->update(['role'=>'cs']);

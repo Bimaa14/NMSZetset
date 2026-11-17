@@ -10,7 +10,7 @@
         @if($errors->any()) <div class="notice danger" role="alert">{{ $errors->first() }}</div> @endif
         <form action="/login" method="post" class="form-stack">
             @csrf
-            <label>Email<input type="email" name="email" value="{{ old('email') }}" autocomplete="username" required placeholder="nama@isp.id"></label>
+            <label>Username<input type="text" name="username" value="{{ old('username', old('email')) }}" autocomplete="username" autocapitalize="none" spellcheck="false" required placeholder="Contoh: noc"></label>
             <label>Kata sandi<input type="password" name="password" autocomplete="current-password" required></label>
             <button class="btn primary" type="submit">Masuk ke dashboard <i data-lucide="arrow-right"></i></button>
         </form>

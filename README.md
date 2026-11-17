@@ -22,15 +22,15 @@ Buka **http://127.0.0.1:8000**. Untuk port lain: `.\start.ps1 -Port 8080`. Henti
 
 Pada konfigurasi lokal demo, kunjungan pertama langsung membuka akun ISP Owner. Setelah Keluar, halaman tetap meminta login. Di `/login`, gunakan tombol role demo atau akun berikut:
 
-| Role | Email |
+| Role | Username | Email (opsional) |
 | --- | --- |
-| ISP Owner | isp_owner@bima.test |
-| NOC | noc@bima.test |
-| CS | cs@bima.test |
-| Teknisi | teknisi@bima.test |
-| Owner tenant kedua (uji isolasi) | owner@nusantara.test |
+| ISP Owner | isp_owner | isp_owner@bima.test |
+| NOC | noc | noc@bima.test |
+| CS | cs | cs@bima.test |
+| Teknisi | teknisi | teknisi@bima.test |
+| Owner tenant kedua (uji isolasi) | owner_nusantara | owner@nusantara.test |
 
-Kata sandi seluruh akun demo: `NmsDemo2026!`. Akun tenant kedua hanya dapat diakses melalui form email/password. Pergantian role demo juga tersedia pada dialog Profil. Mode demo hanya bekerja pada `APP_ENV=local` dan `NMS_DEMO=true`; seeder tidak membuat akun demo pada production.
+Kata sandi seluruh akun demo: `NmsDemo2026!`. Akun tenant kedua hanya dapat diakses melalui form username/password (tetap mendukung email akun lama). Pergantian role demo juga tersedia pada dialog Profil. Mode demo hanya bekerja pada `APP_ENV=local` dan `NMS_DEMO=true`; seeder tidak membuat akun demo pada production.
 
 ## Yang sudah berfungsi
 

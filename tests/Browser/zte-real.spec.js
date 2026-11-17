@@ -13,7 +13,7 @@ test('real mode connection test, sync, view, port, CLI and reboot use the Telnet
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
     try {
         await page.goto('/login');
-        await page.getByLabel('Email',{exact:true}).fill('owner@nusantara.test');
+        await page.getByLabel('Username',{exact:true}).fill('owner@nusantara.test');
         await page.getByLabel('Kata sandi').fill('NmsDemo2026!');
         await page.getByRole('button',{name:'Masuk ke dashboard'}).click();
         const card=page.locator('.olt-card').first();
@@ -93,7 +93,7 @@ test('physical firmware names reach the reference table through per-interface fa
     });
     try {
         await page.goto('/login');
-        await page.getByLabel('Email',{exact:true}).fill('owner@nusantara.test');
+        await page.getByLabel('Username',{exact:true}).fill('owner@nusantara.test');
         await page.getByLabel('Kata sandi').fill('NmsDemo2026!');
         await page.getByRole('button',{name:'Masuk ke dashboard'}).click();
         const card=page.locator('.olt-card').first();

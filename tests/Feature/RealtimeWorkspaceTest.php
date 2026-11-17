@@ -147,8 +147,10 @@ class RealtimeWorkspaceTest extends TestCase {
         $this->withToken($t['token'])->postJson('/api/v1/onus/'.$onu->id.'/reboot')->assertStatus(202);$this->assertDatabaseHas('audit_logs',['actor_type'=>'API_Token','actor_id'=>$t['record']['id'],'action'=>'onu.reboot.demo']);
     }
     public function test_profile_requires_current_password_and_does_not_change_role():void{
-        $owner=$this->owner();$this->actingAs($owner)->putJson('/profile',['name'=>'Wrong','email'=>$owner->email,'current_password'=>'incorrect'])->assertUnprocessable();
-        $this->putJson('/profile',['name'=>'Changed','email'=>$owner->email,'current_password'=>'NmsDemo2026!','password'=>'NewPassword2026!','password_confirmation'=>'NewPassword2026!','role'=>'noc'])->assertOk()->assertJsonStructure(['csrf_token']);
-        $this->assertSame('Changed',$owner->fresh()->name);$this->assertSame('isp_owner',$owner->fresh()->role);$this->assertTrue(\Illuminate\Support\Facades\Hash::check('NewPassword2026!',$owner->fresh()->password));
+        $owner=$this->owner();$this->actingAs($owner)->putJson('/profile',['name'=>'Wrong','username'=>$owner->username,'current_password'=>'incorrect'])->assertUnprocessable();
+        $this->putJson('/profile',['name'=>'Changed','username'=>'bima_owner','current_password'=>'NmsDemo2026!','password'=>'New123','password_confirmation'=>'New123','role'=>'noc'])->assertOk()->assertJsonStructure(['csrf_token']);
+        $this->assertSame('Changed',$owner->fresh()->name);$this->assertSame('bima_owner',$owner->fresh()->username);$this->assertSame('isp_owner',$owner->fresh()->role);$this->assertTrue(\Illuminate\Support\Facades\Hash::check('New123',$owner->fresh()->password));
+
+
     }
 }

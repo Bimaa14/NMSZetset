@@ -29,7 +29,7 @@ function drawMap(container,nodes,onus,assignments,olts,selectNode,coordinates) {
 export function workspaceModules(){return {
     backups:[],restoreBackupId:null,restoreQuery:'',restoreRows:[],restoreOnuId:'',restorePlan:null,restoreBusy:false,columnsOpen:false,
     apiInfo:{tokens:[],base_url:'',documentation_url:''},tokenForm:{name:'',days:30,scope:'read'},newToken:'',
-    profileForm:{name:'',email:'',current_password:'',password:'',password_confirmation:''},
+    profileForm:{name:'',username:'',current_password:'',password:'',password_confirmation:''},
     notificationTab:'whatsapp',
     notificationMeta:{has_telegram_bot_token:false,has_whatsapp_api_key:false},
     notificationLogs:[],
@@ -41,7 +41,7 @@ export function workspaceModules(){return {
         if(type==='backups'){this.restoreBackupId=null;this.restorePlan=null;this.restoreRows=[];this.restoreOnuId='';this.loadBackups();}
         if(type==='api')this.loadApiTokens();
         if(['telegram','whatsapp'].includes(type)){this.notificationTab=type;this.loadNotifications();}
-        if(type==='profile')this.profileForm={name:this.db.user.name,email:this.db.user.email,current_password:'',password:'',password_confirmation:''};
+        if(type==='profile')this.profileForm={name:this.db.user.name,username:this.db.user.username,current_password:'',password:'',password_confirmation:''};
         if(type==='maps'){this.nodeForm=null;this.loadFtth();}
     },
     onModuleClose(){this.provisionForm.pppoe_password='';this.provisionPlan=null;this.newToken='';this.profileForm.current_password='';this.profileForm.password='';this.profileForm.password_confirmation='';this.notificationForm.telegram_bot_token='';this.notificationForm.whatsapp_api_key='';clearMap();},
