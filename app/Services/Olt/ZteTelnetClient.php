@@ -124,7 +124,7 @@ class ZteTelnetClient implements CliClient
             if($bytes>config('olt.max_output_bytes',4194304))throw new OltConnectionException('Buffer CLI melebihi batas.','output_limit');
             $read=[$this->stream];$write=[];$except=[];
             // ZTE may send a trailing table fragment/IAC negotiation in a later packet.
-            $remaining=min(0.05,$deadline-microtime(true));
+            $remaining=min($bytes===0?0.012:0.05,$deadline-microtime(true));
             if($remaining<=0)break;
             $ready=@stream_select($read,$write,$except,0,(int)($remaining*1000000));
             if($ready===false)throw new OltConnectionException('Gagal membersihkan buffer CLI.','socket_error');

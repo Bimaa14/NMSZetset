@@ -86,4 +86,30 @@ class OnuDetailTest extends TestCase {
         $this->actingAs($this->owner())->postJson('/onus/'.$o->id.'/detail/configure',['kind'=>'wifi','id'=>1,'name'=>'NEW-WIFI','password'=>'test-secret-123','confirmed'=>true])->assertOk()->assertDontSee('test-secret-123');
         $this->assertContains('ssid auth wpa wifi_0/1 key test-secret-123',(array)$calls);$this->assertDatabaseHas('audit_logs',['action'=>'onu.detail.wifi.applied']);
     }
+    public function test_batch_detail_refresh_reads_all_tabs_in_one_telnet_session():void {
+        $o=$this->onu();
+        [,$calls]=$this->peer([
+            'show gpon onu detail-info'=>"Serial number: {$o->sn}\nPhase state: working",
+            'show onu running config'=>"wan-ip 1 mode pppoe username batchuser password batch-secret vlan-profile MGMT host 1\nssid ctrl wifi_0/1 name BATCH-WIFI\nssid auth wpa wifi_0/1 wpa2-psk encrypt aes key wifi-secret",
+            'show gpon remote-onu wan-ip'=>"WAN: 1\nIP address: 192.0.2.15\nStatus: connected",
+            'show gpon remote-onu interface eth'=>"Port: eth_0/1\nAdmin state: enable\nOperational state: active",
+            'show gpon remote-onu ip-host'=>"Host: 1\nIP address: 192.0.2.16\nMode: DHCP",
+            'show gpon remote-onu ssid info'=>"Interface: wifi_0/1\nName: BATCH-WIFI",
+            'show gpon remote-onu interface wifi'=>"Interface: wifi_0/1\nAdmin status: unlock\nOperate status: enable",
+        ]);
+        $this->actingAs($this->owner())->postJson('/onus/'.$o->id.'/detail/refresh',[
+            'section'=>'wan',
+            'sections'=>['wan','ethernet','iphost','wifi'],
+        ])->assertOk()
+            ->assertJsonPath('sections.wan.data.items.0.ip','192.0.2.15')
+            ->assertJsonPath('sections.wan.data.items.0.has_password',true)
+            ->assertJsonPath('sections.ethernet.data.items.0.id',1)
+            ->assertJsonPath('sections.iphost.data.items.0.ip','192.0.2.16')
+            ->assertJsonPath('sections.wifi.data.items.0.name','BATCH-WIFI')
+            ->assertDontSee('batch-secret')
+            ->assertDontSee('wifi-secret');
+        $this->assertSame(1,count(array_filter((array)$calls,fn($c)=>str_starts_with($c,'show gpon onu detail-info'))));
+        $this->assertSame(1,count(array_filter((array)$calls,fn($c)=>str_starts_with($c,'show onu running config'))));
+        $this->assertSame(4,OnuDetailSnapshot::where('onu_id',$o->id)->count());
+    }
 }

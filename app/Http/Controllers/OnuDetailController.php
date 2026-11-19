@@ -13,7 +13,31 @@ class OnuDetailController extends Controller {
         $position=Onu::where('tenant_id',$onu->tenant_id)->where('olt_id',$onu->olt_id)->where('olt_port_id',$onu->olt_port_id)->where('onu_index',$onu->onu_index)->orderByDesc('id')->limit(30)->get(['id','sn','created_at','last_seen_at','is_present','observation_source']);
         return response()->json(['sections'=>$sections,'odp'=>$node?['name'=>$node->name,'id'=>$node->id,'port'=>$assignment->port_number]:null,'position_history'=>$position,'description'=>app(ZteOnuDetailParser::class)->cleanDescription($onu->description),'board'=>collect($onu->olt->boards??[])->first(fn($b)=>(int)($b['slot']??$b['slot_no']??0)===$onu->port->slot_no),'source'=>$onu->olt->connection_mode])->header('Cache-Control','no-store');
     }
-    public function refresh(Request $r,int $id,ZteOnuDetailService $service){$onu=$this->onu($r,$id);$d=$r->validate(['section'=>'required|in:info,wan,ethernet,iphost,wifi,config']);if($d['section']==='config')abort_unless($r->user()->allows('cli'),403);try{$payload=$this->publicData($service->refresh($onu,$d['section']));}catch(\App\Services\Olt\OltConnectionException $e){if($e->reason!=='read_busy')throw $e;return response()->json(['skipped'=>true,'reason'=>'read_busy'],202)->header('Cache-Control','no-store');}return response()->json($payload)->header('Cache-Control','no-store');}
+    public function refresh(Request $r,int $id,ZteOnuDetailService $service){
+        $onu=$this->onu($r,$id);
+        $d=$r->validate([
+            'section'=>'required|in:info,wan,ethernet,iphost,wifi,config',
+            'sections'=>'nullable|array|max:6',
+            'sections.*'=>'in:info,wan,ethernet,iphost,wifi,config',
+        ]);
+        $requested=array_values(array_unique($d['sections']??[$d['section']]));
+        if(in_array('config',$requested,true))abort_unless($r->user()->allows('cli'),403);
+        try{
+            if(count($requested)>1){
+                $batch=$service->refreshBatch($onu,$requested);
+                $publicSections=[];
+                foreach($batch as $sec=>$item)$publicSections[$sec]=$this->publicData($item);
+                $primary=$publicSections[$d['section']]??reset($publicSections)?:[];
+                $payload=$primary+['sections'=>$publicSections];
+            }else{
+                $payload=$this->publicData($service->refresh($onu,$d['section']));
+            }
+        }catch(\App\Services\Olt\OltConnectionException $e){
+            if($e->reason!=='read_busy')throw $e;
+            return response()->json(['skipped'=>true,'reason'=>'read_busy'],202)->header('Cache-Control','no-store');
+        }
+        return response()->json($payload)->header('Cache-Control','no-store');
+    }
     public function secret(Request $r,int $id,AuditRecorder $audit){$onu=$this->onu($r,$id);abort_unless($r->user()->allows('operate'),403);$d=$r->validate(['section'=>'required|in:wan,wifi','item_id'=>'required|integer|min:1|max:64']);$snapshot=OnuDetailSnapshot::where(['onu_id'=>$id,'section'=>$d['section'],'source'=>$onu->olt->connection_mode])->first();$item=collect($snapshot?->payload['data']['items']??[])->firstWhere('id',$d['item_id']);$audit->record($r,'onu.secret.view',$onu->sn,$onu->olt_id);return response()->json(['password'=>$item['password']??null])->header('Cache-Control','no-store');}
     public function configure(Request $r,int $id,ZteOnuDetailService $service,AuditRecorder $audit){
         $onu=$this->onu($r,$id);abort_unless($r->user()->allows('operate'),403);
