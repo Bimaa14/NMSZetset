@@ -35,7 +35,7 @@ Alpine.data('dashboard', () => Object.defineProperties({
     directory:{data:[],total:0,last_page:1,summary:{total:0,online:0,other:0,weak:0,percent:0}},directoryBusy:false,directoryEpoch:0,searchEpoch:0,searchRows:[],searchTotal:0,searchOltIds:[],
     query: '', modalQuery: '', statusFilter: 'all', sort: 'default', equipmentOpen: true,
     modal: '', selected: null, mapOnu: null, error: '', busy: false, syncing: [], theme: 'light', uiReady:false,
-    toast: { message: '', error: false }, toastTimer: null,
+    toast: { message: '', error: false }, toastTimer: null, confirmModal: null, confirmResolver: null,
     connectionTest: '', testProtocol: 'cli', detailLoading: false, detailSerial: 0,
     form: {}, command: '', terminalOutput: '', commandHistory: [], historyIndex: 0, commandDraft: '',
     onuPage:1,onuPageSize:50,onuSort: 'name', onuSortDirection: 1, inspectedOnu: null, onuStatus: 'all', pendingAction: null, tagOnu: null, onuTagIds: [],
@@ -142,6 +142,19 @@ Alpine.data('dashboard', () => Object.defineProperties({
     open(type, olt = null) { if(type==='power'){this.showPage('power');return;} const feature={cli:'cli',provision:'provision',backups:'backup'}[type];if(feature&&olt&&!this.supportsFeature(olt,feature)){this.notify('Fitur ini belum tersedia untuk perangkat ini.',true);return;}this.detailSerial++;this.detailOperation=null;this.onuPage=1; this.selected = olt; this.error = ''; this.validationErrors = {}; this.pendingAction = null; this.tagOnu = null; this.inspectedOnu=null; this.onuSort='name'; this.onuSortDirection=1; this.onuStatus = 'all'; this.onuPort='all';this.onuOlt='all'; this.onuHistory=null; this.modalQuery = ''; this.modal = type; this.connectionTest=''; this.detailLoading=false; if(type==='staff') this.staffForm=null; if(type==='tags') this.resetTag(); if(type==='audit') { this.auditQuery=''; this.auditAction=''; this.auditFrom=''; this.auditTo=''; this.loadAudit(); } if (!this.$refs.dialog.open) this.$refs.dialog.showModal(); this.onModuleOpen(type);if(['onus','degradation'].includes(type)){this.directory.data=[];this.loadDirectory();} if(olt?.connection_mode==='real' && ['view','info','ports'].includes(type))this.refreshRealDetails(type,olt); },
     closeModal() { if (this.busy) return; this.detailSerial++;this.detailOperation=null; this.detailLoading=false; this.onModuleClose(); this.$refs.dialog.close(); this.modal = ''; this.error = ''; this.pendingAction = null; this.tagOnu = null; this.form.telnet_password = ''; this.form.snmp_community = '';this.form.traffic_telnet_password='';this.form.traffic_enable_password=''; if(this.staffForm) this.staffForm.password=''; },
     notify(message, error = false) { this.toast = { message, error }; clearTimeout(this.toastTimer); this.toastTimer = setTimeout(() => { this.toast.message = ''; }, 6500); },
+    askConfirm({ title = 'Konfirmasi', message = '', detail = '', confirmText = 'Lanjutkan', cancelText = 'Batal', tone = 'warning' } = {}) {
+        if (this.confirmResolver) { this.confirmResolver(false); this.confirmResolver = null; }
+        this.confirmModal = { title, message, detail, confirmText, cancelText, tone };
+        this.$nextTick(() => { if (!this.$refs.confirmDialog?.open) this.$refs.confirmDialog?.showModal(); });
+        return new Promise(resolve => { this.confirmResolver = resolve; });
+    },
+    resolveConfirm(accepted) {
+        const resolver = this.confirmResolver;
+        this.confirmResolver = null;
+        this.confirmModal = null;
+        if (this.$refs.confirmDialog?.open) this.$refs.confirmDialog.close();
+        if (resolver) resolver(!!accepted);
+    },
     async request(url, method = 'GET', body = undefined, options = {}) {
         const response = await fetch(url, { ...options, method, headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
         if (response.status === 401 || response.status === 419) { throw new Error('Sesi berakhir. Muat ulang halaman dan masuk kembali.'); }
@@ -207,7 +220,7 @@ Alpine.data('dashboard', () => Object.defineProperties({
     },
     async toggleMonitoring() { await this.mutate('/olts/'+this.selected.id+'/monitoring','PUT',{monitoring_enabled:!this.selected.monitoring_enabled}); },
     async renameOnu(){if(this.inspectedOnu&&this.onuSupports(this.inspectedOnu,'onu_configuration'))await this.mutate('/onus/'+this.inspectedOnu.id+'/name','PUT',{name:this.onuNameDraft});},
-    async toggleOnuAdmin(){const onu=this.inspectedOnu;if(!onu||!this.onuSupports(onu,'onu_configuration')||!confirm((onu.admin_state==='disable'?'Aktifkan':'Nonaktifkan')+' ONU '+onu.name+'?'))return;await this.mutate('/onus/'+onu.id+'/admin','PUT',{enabled:onu.admin_state==='disable'});},
+    async toggleOnuAdmin(){const onu=this.inspectedOnu;if(!onu||!this.onuSupports(onu,'onu_configuration'))return;const enable=onu.admin_state==='disable';const ok=await this.askConfirm({title:(enable?'Aktifkan':'Nonaktifkan')+' ONU?',message:enable?'Port layanan ONU akan diaktifkan kembali pada OLT.':'Layanan pelanggan pada ONU ini akan dinonaktifkan sementara.',detail:this.onuDisplayName(onu)+' · '+onu.sn,confirmText:enable?'Ya, Aktifkan':'Ya, Nonaktifkan',tone:enable?'primary':'warning'});if(!ok)return;await this.mutate('/onus/'+onu.id+'/admin','PUT',{enabled:enable});},
     async saveOnuLocation(){if(this.inspectedOnu)await this.mutate('/ftth/onus/'+this.inspectedOnu.id+'/location','PUT',this.onuLocationDraft);},
     async loadOnuHistory() {
         if(!this.inspectedOnu)return; const id=this.inspectedOnu.id; this.historyLoading=true;

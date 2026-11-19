@@ -1,6 +1,6 @@
 @extends('layout')
 @section('body')
-<div x-data="dashboard" @keydown.escape.window.prevent="if($refs.onuToolDialog.open)closeOnuTool();else if($refs.trafficDialog.open)closeTraffic();else if($refs.onuDialog.open)closeOnuInspector();else closeModal()" @keydown.ctrl.k.window.prevent="$refs.search.focus()" @keydown.meta.k.window.prevent="$refs.search.focus()">
+<div x-data="dashboard" @keydown.escape.window.prevent="if($refs.confirmDialog?.open)resolveConfirm(false);else if($refs.onuToolDialog.open)closeOnuTool();else if($refs.trafficDialog.open)closeTraffic();else if($refs.onuDialog.open)closeOnuInspector();else closeModal()" @keydown.ctrl.k.window.prevent="$refs.search.focus()" @keydown.meta.k.window.prevent="$refs.search.focus()">
     <a class="skip-link" href="#main">Lewati ke konten</a>
     <header class="site-header">
         <div class="top-row">
@@ -187,6 +187,26 @@
     @include('partials.onu-detail')
     @include('partials.traffic')
     @include('partials.onu-config-tool')
+    <dialog x-ref="confirmDialog" class="lumina-confirm-dialog" aria-labelledby="confirm-dialog-title" @cancel.prevent="resolveConfirm(false)" @click="if($event.target===$refs.confirmDialog)resolveConfirm(false)">
+        <div class="lumina-confirm-shell" x-show="confirmModal">
+            <div class="lumina-confirm-head">
+                <span class="lumina-confirm-icon" :class="confirmModal?.tone === 'danger' ? 'is-danger' : (confirmModal?.tone === 'primary' ? 'is-primary' : 'is-warning')">
+                    <i data-lucide="alert-triangle" x-show="confirmModal?.tone !== 'primary'"></i>
+                    <i data-lucide="refresh-cw" x-show="confirmModal?.tone === 'primary'"></i>
+                </span>
+                <div class="lumina-confirm-copy">
+                    <h3 id="confirm-dialog-title" x-text="confirmModal?.title || 'Konfirmasi'"></h3>
+                    <p class="muted small" x-text="confirmModal?.message || ''"></p>
+                </div>
+                <button type="button" class="icon-button" aria-label="Tutup konfirmasi" @click="resolveConfirm(false)"><i data-lucide="x"></i></button>
+            </div>
+            <div class="lumina-confirm-target mono" x-show="confirmModal?.detail" x-text="confirmModal?.detail"></div>
+            <div class="lumina-confirm-actions">
+                <button type="button" class="btn secondary" @click="resolveConfirm(false)" x-text="confirmModal?.cancelText || 'Batal'"></button>
+                <button type="button" class="btn" :class="confirmModal?.tone === 'danger' ? 'danger-solid' : 'primary'" @click="resolveConfirm(true)" x-text="confirmModal?.confirmText || 'Lanjutkan'"></button>
+            </div>
+        </div>
+    </dialog>
     <div class="toast" x-show="toast.message" x-cloak x-transition role="status" :class="{error:toast.error}"><i data-lucide="circle-check"></i><span x-text="toast.message"></span><button class="icon-button" @click="toast.message=''" aria-label="Tutup notifikasi"><i data-lucide="x"></i></button></div>
 </div>
 <script id="initial-data" type="application/json">{!! json_encode($initial, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}</script>

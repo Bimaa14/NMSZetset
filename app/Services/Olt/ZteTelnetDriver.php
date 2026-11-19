@@ -350,13 +350,20 @@ class ZteTelnetDriver
             $client->command('configure terminal');
             $client->command('pon-onu-mng '.$interface);
             // Never retry a write automatically: timeout after confirmation is an uncertain outcome.
+            $verifiedByState = false;
             try {
                 $output = $client->command('reboot', true);
                 if (preg_match(ZteTelnetClient::CONFIRM, $output)) {
-                    $output = $client->command('yes');
+                    $confirmAnswer = preg_match('/[\[(]y\/n[\])]/i', $output) ? 'y' : 'yes';
+                    $output = $client->command($confirmAnswer);
                 }
-                if (! preg_match('/\b(?:success(?:ful(?:ly)?)?|accepted|rebooting|reboot\s+(?:ONU\s+)?(?:is\s+)?(?:sent|started)|OK)\b/i', $output)) {
-                    throw new OltConnectionException('OLT tidak memberikan bukti penerimaan reboot. Periksa status ONU sebelum mencoba ulang.', 'reboot_uncertain');
+                $acknowledged = (bool) preg_match('/\b(?:success(?:ful(?:ly)?)?|succeeded|accepted|rebooting|reboot\s+(?:ONU\s+)?(?:is\s+)?(?:sent|started|done|ok)|done|complete(?:d)?|OK)\b/i', $output);
+                if (! $acknowledged) {
+                    $verifiedByState = $this->verifyRebootOnDevice($client, $interface, $onu);
+                    if (! $verifiedByState) {
+                        throw new OltConnectionException('OLT tidak memberikan bukti penerimaan reboot. Periksa status ONU sebelum mencoba ulang.', 'reboot_uncertain');
+                    }
+                    $output = 'Reboot verified on OLT';
                 }
             } catch (OltConnectionException $e) {
                 if ($e->reason === 'command_rejected') {
@@ -364,13 +371,58 @@ class ZteTelnetDriver
                 }
                 throw new OltConnectionException('Hasil reboot belum dapat dipastikan. Jangan ulangi otomatis; periksa ONU melalui Sync.', 'reboot_uncertain');
             }
-            try {
-                $client->command('exit');
-            } catch (OltConnectionException) { /* Reboot already acknowledged. */
+            if (! $verifiedByState) {
+                try {
+                    $client->command('exit');
+                } catch (OltConnectionException) { /* Reboot already acknowledged. */
+                }
             }
 
             return $output;
         });
+    }
+
+    private function verifyRebootOnDevice(CliClient $client, string $interface, Onu $onu): bool
+    {
+        try {
+            $client->command('end', false, 3, 5);
+        } catch (OltConnectionException) {
+            try {
+                $client->command('exit', false, 3, 5);
+                $client->command('exit', false, 3, 5);
+            } catch (OltConnectionException) {
+                return false;
+            }
+        }
+
+        $wasWorking = $onu->phase_state === null || $onu->phase_state === 'working';
+        $prevOfflineAt = $onu->last_offline_at?->timezone('Asia/Jakarta')->format('Y-m-d H:i:s');
+        $delaysUs = app()->runningUnitTests() ? [0] : [1500000, 2000000];
+        $parser = app(ZteOnuDetailParser::class);
+
+        foreach ($delaysUs as $delay) {
+            if ($delay > 0) {
+                usleep($delay);
+            }
+            try {
+                $detail = $client->command('show gpon onu detail-info '.$interface, false, 4, 7, true);
+            } catch (OltConnectionException) {
+                return false;
+            }
+            $info = $parser->info($detail);
+            $phase = $info['phase_state'] ?? null;
+            $cause = strtolower((string) ($info['last_down_cause'] ?? ''));
+            $offlineAt = $info['last_offline_at'] ?? null;
+
+            if ($wasWorking && $phase !== null && $phase !== 'working') {
+                return true;
+            }
+            if (str_contains($cause, 'reboot') && $offlineAt !== null && $offlineAt !== $prevOfflineAt) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function session(Olt $olt, callable $work): mixed

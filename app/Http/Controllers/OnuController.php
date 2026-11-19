@@ -23,7 +23,7 @@ class OnuController extends Controller
                 // Acknowledgement is not proof of the ONU's new physical state. Sync confirms it.
                 $onu->update(['reboot_requested_at'=>now(),'reboot_complete_at'=>null,'reboot_restore_state'=>null]);
                 $log=$audit->record($request,'onu.reboot.real',$onu->name.' · '.$onu->sn,$onu->olt_id);
-                return response()->json(['message'=>'OLT menerima perintah reboot. Jalankan Sync untuk memastikan status ONU terkini.','audit_log_id'=>$log->id,'source'=>'real']);
+                return response()->json(['message'=>'Perintah reboot diterima OLT. Status ONU sedang diperbarui…','audit_log_id'=>$log->id,'source'=>'real']);
             });
         }
         $operations->requireAvailable();

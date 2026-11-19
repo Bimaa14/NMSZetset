@@ -41,4 +41,20 @@ class RebootIdentityTest extends TestCase {
         if(!$allowed)$this->assertCount(1,$commands);
     }
     public static function readFailures():array {return [['command_rejected',true],['parse_failed',true],['timeout',false]];}
+
+    public function test_silent_zte_reboot_is_accepted_when_live_detail_proves_onu_restarted():void {
+        $onu=User::where('role','isp_owner')->first()->tenant->onus()->with(['olt','port'])->first();
+        $onu->update(['phase_state'=>'working']);
+        $index=str_replace('gpon-olt_','',$onu->port->interface_name).':'.$onu->onu_index;
+        $client=\Mockery::mock(CliClient::class);$client->shouldReceive('connect','close')->once()->andReturnNull();
+        $client->shouldReceive('command')->andReturnUsing(function($command)use($index,$onu){
+            if(str_starts_with($command,'show gpon onu baseinfo'))return "OnuIndex Type SN State\n$index F609 {$onu->sn} ready\nTotal: 1";
+            if($command==='reboot')return 'Confirm to reboot? [yes/no]:';
+            if($command==='yes')return '';
+            if(str_starts_with($command,'show gpon onu detail-info'))return "Serial number: {$onu->sn}\nPhase state: OffLine\n1 2026-11-20 03:00:00 2026-11-20 03:47:00 Reboot";
+            return '';
+        });
+        $driver=\Mockery::mock(ZteTelnetDriver::class,[app(ZteOutputParser::class)])->makePartial();$driver->shouldReceive('client')->andReturn($client);
+        $this->assertSame('Reboot verified on OLT',$driver->reboot($onu));
+    }
 }

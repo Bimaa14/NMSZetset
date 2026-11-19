@@ -110,16 +110,55 @@ export function onuDetailModule(){return {
     detailUpCount(){return this.detailItems().filter(i=>this.detailStatus(i.operational||i.status||i.admin)).length;},
     chartPoints(kind){const rows=[...(this.onuHistory?.[kind==='traffic'?'traffic':'optical']||[])].reverse().filter(r=>Number.isFinite(Number(r[kind==='traffic'?'download_bps':'rx_power']))&&r[kind==='traffic'?'download_bps':'rx_power']!=null);if(!rows.length)return '';const values=rows.map(r=>Number(r[kind==='traffic'?'download_bps':'rx_power']));const min=Math.min(...values),range=Math.max(...values)-min||1;return values.map((v,i)=>(20+i*560/Math.max(1,values.length-1))+','+(150-(v-min)*120)).join(' ');},
     editOnuService(kind,item={}){if(!this.onuSupports(this.inspectedOnu,'onu_configuration'))return;this.detailEdit={kind,id:item.id||1,username:item.username||'',password:'',vlan_profile:item.vlan_profile||'',host:item.host||1,enabled:this.detailStatus(item.admin),name:item.name||'',description:this.detailDescription};this.detailPanel='service';this.focusOnuPanel();},
-    async saveOnuService(){const data={...this.detailEdit,confirmed:true};if(!confirm('Terapkan perubahan '+data.kind+' ke ONU '+this.onuDisplayName(this.inspectedOnu)+'?'))return;await this.executeOnuConfiguration(data);},
+    async saveOnuService(){
+        const data={...this.detailEdit,confirmed:true};
+        const ok=await this.askConfirm({title:'Terapkan Perubahan '+data.kind.toUpperCase()+'?',message:'Perubahan konfigurasi akan langsung dikirim dan diverifikasi pada OLT.',detail:this.onuDisplayName(this.inspectedOnu)+' · '+this.inspectedOnu.sn,confirmText:'Ya, Terapkan',tone:'primary'});
+        if(!ok)return;
+        await this.executeOnuConfiguration(data);
+    },
+    async deleteOnuWan(id){
+        if(!this.inspectedOnu||!this.onuSupports(this.inspectedOnu,'onu_configuration'))return;
+        const ok=await this.askConfirm({title:'Hapus Konfigurasi WAN '+id+'?',message:'Konfigurasi WAN ini akan dihapus dari ONU di OLT dan koneksi dapat terputus.',detail:this.onuDisplayName(this.inspectedOnu)+' · WAN '+id,confirmText:'Ya, Hapus WAN',tone:'danger'});
+        if(!ok)return;
+        await this.executeOnuConfiguration({kind:'wan',id,delete:true,confirmed:true});
+    },
+    async saveOnuDescription(){
+        if(!this.inspectedOnu||!this.onuSupports(this.inspectedOnu,'onu_configuration'))return;
+        const ok=await this.askConfirm({title:'Simpan Deskripsi ke OLT?',message:'Deskripsi ONU akan diperbarui langsung pada konfigurasi OLT.',detail:this.onuDisplayName(this.inspectedOnu)+' → '+this.detailDescription,confirmText:'Ya, Simpan',tone:'primary'});
+        if(!ok)return;
+        await this.executeOnuConfiguration({kind:'description',description:this.detailDescription,confirmed:true});
+    },
     async executeOnuConfiguration(data){if(this.detailBusy||!this.inspectedOnu||!this.onuSupports(this.inspectedOnu,'onu_configuration'))return;const epoch=this.detailEpoch;this.detailBusy=true;this.detailError='';try{const result=await this.request('/onus/'+this.inspectedOnu.id+'/detail/configure','POST',data);this.notify(result.message);if(epoch===this.detailEpoch){this.detailEdit=null;this.detailPanel='';this.detailSections={};}}catch(e){if(e.name!=='AbortError'&&epoch===this.detailEpoch)this.detailError=e.message;}finally{if(epoch===this.detailEpoch)this.detailBusy=false;}},
-    async detailAction(kind){const onu=this.inspectedOnu;if(!onu||this.rebootState||!this.onuSupports(onu,kind==='reboot'?'reboot':'onu_configuration'))return;if(!confirm((kind==='factory'?'Reset pabrik menghapus pengaturan ONU dan dapat memutus layanan. ':kind==='delete'?'Hapus pendaftaran ONU dari OLT? ':'Jalankan '+kind+' untuk ONU ini? ')+'\n'+this.onuDisplayName(onu)))return;
+    async detailAction(kind){
+        const onu=this.inspectedOnu;if(!onu||this.rebootState||!this.onuSupports(onu,kind==='reboot'?'reboot':'onu_configuration'))return;
+        this.$refs.onuDialog?.querySelectorAll('.onu-actions-menu[open]').forEach(el=>el.removeAttribute('open'));
+        const enable=onu.admin_state==='disable';
+        const prompts={
+            reboot:{title:'Reboot ONU?',message:'Perintah restart akan dikirim ke OLT. Koneksi pelanggan akan terputus sementara selama ONU menyala ulang.',confirmText:'Ya, Reboot ONU',tone:'warning'},
+            admin:{title:(enable?'Aktifkan':'Nonaktifkan')+' ONU?',message:enable?'Layanan ONU akan diaktifkan kembali di OLT.':'Layanan pelanggan pada ONU ini akan dinonaktifkan sementara.',confirmText:enable?'Ya, Aktifkan':'Ya, Nonaktifkan',tone:enable?'primary':'warning'},
+            factory:{title:'Reset Pabrik ONU?',message:'Reset pabrik menghapus seluruh pengaturan pada ONU dan dapat memutus layanan pelanggan.',confirmText:'Ya, Reset Pabrik',tone:'danger'},
+            delete:{title:'Hapus ONU dari OLT?',message:'Pendaftaran ONU ini akan dihapus permanen dari OLT dan layanan akan terputus.',confirmText:'Ya, Hapus ONU',tone:'danger'},
+        };
+        const cfg=prompts[kind]||{title:'Konfirmasi Tindakan',message:'Jalankan '+kind+' untuk ONU ini?',confirmText:'Lanjutkan',tone:'warning'};
+        const ok=await this.askConfirm({...cfg,detail:this.onuDisplayName(onu)+' · '+onu.sn});
+        if(!ok)return;
         if(kind==='factory')return this.executeOnuConfiguration({kind:'factory',confirmed:true});
         if(kind==='reboot'){
             const epoch=this.detailEpoch;this.detailError='';this.error='';
-            try{const result=await this.requestOnuReboot(onu.id);if(result){this.notify(result.message);await this.reload();}}
+            try{
+                const result=await this.requestOnuReboot(onu.id);
+                if(result){
+                    this.notify(result.message);
+                    await this.reload();
+                    if(epoch===this.detailEpoch&&this.$refs.onuDialog.open){
+                        await this.refreshOnuSection('info');
+                        setTimeout(()=>{if(epoch===this.detailEpoch&&this.$refs.onuDialog.open&&!this.detailBusy)this.refreshOnuSection('info');},8000);
+                    }
+                }
+            }
             catch(e){if(epoch===this.detailEpoch)this.detailError=e.message;else this.notify(e.message,true);}
             return;
         }
-        try{await this.request('/onus/'+onu.id+(kind==='delete'?'':kind==='reboot'?'/reboot':'/admin'),kind==='delete'?'DELETE':kind==='reboot'?'POST':'PUT',kind==='admin'?{enabled:onu.admin_state==='disable'}:undefined);if(kind==='delete')this.closeOnuInspector();await this.reload();this.notify('Permintaan '+kind+' diterima.');}catch(e){this.detailError=e.message;}
+        try{await this.request('/onus/'+onu.id+(kind==='delete'?'':kind==='reboot'?'/reboot':'/admin'),kind==='delete'?'DELETE':kind==='reboot'?'POST':'PUT',kind==='admin'?{enabled:enable}:undefined);if(kind==='delete')this.closeOnuInspector();await this.reload();this.notify('Permintaan '+kind+' diterima.');}catch(e){this.detailError=e.message;}
     },
 };}
