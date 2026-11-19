@@ -1299,10 +1299,62 @@ dialog.lumina-confirm-dialog::backdrop {
 }
 .vlan-chips-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+}
+.vlan-chips-head.is-collapsed {
+    margin-bottom: 0;
+}
+.vlan-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: var(--text);
+    font-size: 12.5px;
+    cursor: pointer;
+}
+.vlan-collapse-toggle .chevron {
+    width: 15px;
+    height: 15px;
+    color: var(--muted);
+    transition: transform 180ms ease;
+}
+.vlan-collapse-toggle .chevron.rotated {
+    transform: rotate(180deg);
+}
+.vlan-chips-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.vlan-chip-search {
+    height: 32px;
+    min-height: 32px;
+    width: 160px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: var(--input);
+    color: var(--text);
+    font-size: 11px;
+}
+.vlan-toggle-btn {
+    min-height: 32px !important;
+    padding: 5px 11px !important;
+    font-size: 11px !important;
+}
+.vlan-chips-body {
+    max-height: 220px;
+    overflow-y: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
 }
 .vlan-chips-bar {
     display: flex;

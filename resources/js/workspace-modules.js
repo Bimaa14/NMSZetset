@@ -36,7 +36,7 @@ export function workspaceModules(){return {
     notificationForm:{telegram_enabled:false,telegram_bot_token:'',telegram_chat_id:'',telegram_thread_id:'',whatsapp_enabled:false,whatsapp_provider:'baileys',whatsapp_endpoint_url:'http://127.0.0.1:3001/send-message',whatsapp_api_key:'',whatsapp_session_id:'default',whatsapp_recipients:'',notify_on_los:true,notify_on_dying_gasp:true,notify_on_recovery:true,notify_on_bad_rx:true,bad_rx_threshold:-27,cooldown_minutes:15},
     powerData:{monitors:[],groups:[],summary:{total:0,up:0,warning:0,down:0,unknown:0,avg_latency_ms:null},settings:null,logs:[]},
     customerGroupData:{groups:[],summary:{total_groups:0,total_onus:0,grouped_onus:0,ungrouped_onus:0,with_vlan_onus:0,without_vlan_onus:0},available_vlans:[]},
-    customerGroupForm:null,selectedGroupFilter:'all',groupOnus:{data:[],total:0,current_page:1,last_page:1},groupOnuQuery:'',groupOnuOlt:'all',groupOnuStatus:'all',groupOnuLoading:false,groupOnuRequest:0,groupSyncing:false,
+    customerGroupForm:null,selectedGroupFilter:'all',groupOnus:{data:[],total:0,current_page:1,last_page:1},groupOnuQuery:'',groupOnuOlt:'all',groupOnuStatus:'all',groupOnuLoading:false,groupOnuRequest:0,groupSyncing:false,vlanChipsOpen:false,vlanChipSearch:'',
     activePage:({'#listrik':'power','#grup-pelanggan':'groups','#whatsapp':'whatsapp','#telegram':'telegram','#profil':'profile','#api':'api','#profil-layanan':'profiles','#tags':'tags','#staff':'staff','#audit':'audit'})[window.location.hash]||'dashboard',
     powerTab:'monitors',powerForm:null,powerOnuOptions:[],powerOnuSearch:'',powerFilter:{q:'',group:'all',status:'all'},powerChecking:false,powerCheckingId:null,
     powerSettingsForm:{power_notify_enabled:true,power_whatsapp_recipients:'',power_telegram_chat_id:'',power_telegram_thread_id:'',power_cooldown_minutes:5},
@@ -85,6 +85,7 @@ export function workspaceModules(){return {
         return g?g.name:'';
     },
     selectCustomerGroup(key){this.selectedGroupFilter=key;this.loadGroupOnus(1);},
+    filteredAvailableVlans(){const q=(this.vlanChipSearch||'').trim().toLowerCase();const list=this.customerGroupData.available_vlans||[];return q?list.filter(i=>String(i.vlan_id).includes(q)):list;},
     async loadGroupOnus(page=1){
         const serial=++this.groupOnuRequest;this.groupOnuLoading=true;
         try{

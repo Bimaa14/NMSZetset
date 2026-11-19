@@ -135,18 +135,30 @@
         </article>
     </div>
 
-    <div class="panel ws-filter-card" x-show="(customerGroupData.available_vlans || []).length">
-        <div class="vlan-chips-head">
-            <span class="small muted"><strong>VLAN Terdeteksi di OLT:</strong> klik untuk filter ONU per VLAN</span>
-            <button type="button" class="text-button" x-show="selectedGroupFilter !== 'all'" @click="selectCustomerGroup('all')">Tampilkan Semua ONU</button>
+    <div class="panel ws-filter-card vlan-collapse-card" x-show="(customerGroupData.available_vlans || []).length">
+        <div class="vlan-chips-head" :class="{'is-collapsed': !vlanChipsOpen}">
+            <button type="button" class="vlan-collapse-toggle" @click="vlanChipsOpen = !vlanChipsOpen" :aria-expanded="vlanChipsOpen">
+                <i data-lucide="chevron-down" class="chevron" :class="{'rotated': vlanChipsOpen}"></i>
+                <strong>VLAN Terdeteksi di OLT</strong>
+                <span class="count-pill" x-text="(customerGroupData.available_vlans || []).length + ' VLAN'"></span>
+                <span class="power-sn-pill mono" x-show="selectedGroupFilter.startsWith('vlan:')" x-text="'Aktif: VLAN ' + selectedGroupFilter.slice(5)"></span>
+            </button>
+            <div class="vlan-chips-tools">
+                <input x-show="vlanChipsOpen" x-model="vlanChipSearch" type="search" class="vlan-chip-search mono" placeholder="Cari nomor VLAN..." aria-label="Cari nomor VLAN">
+                <button type="button" class="text-button" x-show="selectedGroupFilter !== 'all'" @click="selectCustomerGroup('all')">Tampilkan Semua ONU</button>
+                <button type="button" class="btn secondary vlan-toggle-btn" @click="vlanChipsOpen = !vlanChipsOpen" x-text="vlanChipsOpen ? 'Minimize' : 'Tampilkan VLAN'"></button>
+            </div>
         </div>
-        <div class="vlan-chips-bar">
-            <template x-for="item in customerGroupData.available_vlans || []" :key="item.vlan_id">
-                <button type="button" class="vlan-chip mono" :class="{'is-active': selectedGroupFilter === 'vlan:' + item.vlan_id}" @click="selectCustomerGroup('vlan:' + item.vlan_id)">
-                    <span x-text="'VLAN ' + item.vlan_id"></span>
-                    <span class="power-filter-count" x-text="item.count"></span>
-                </button>
-            </template>
+        <div class="vlan-chips-body" x-show="vlanChipsOpen" x-cloak>
+            <div class="vlan-chips-bar">
+                <template x-for="item in filteredAvailableVlans()" :key="item.vlan_id">
+                    <button type="button" class="vlan-chip mono" :class="{'is-active': selectedGroupFilter === 'vlan:' + item.vlan_id}" @click="selectCustomerGroup('vlan:' + item.vlan_id)">
+                        <span x-text="'VLAN ' + item.vlan_id"></span>
+                        <span class="power-filter-count" x-text="item.count"></span>
+                    </button>
+                </template>
+            </div>
+            <p class="muted small" x-show="!filteredAvailableVlans().length" style="margin-top:8px">Nomor VLAN tidak ditemukan.</p>
         </div>
     </div>
 
