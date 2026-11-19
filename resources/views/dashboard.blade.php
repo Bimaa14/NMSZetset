@@ -5,7 +5,7 @@
     <header class="site-header">
         <div class="top-row">
             <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark">@include('partials.lumina-logo')</span><span>LUMINA <b>NMS</b><small>OPTICAL NETWORK SYSTEM</small></span></a>
-            <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong>Overview</strong></div>
+            <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong x-text="activePage==='power' ? 'Monitoring Listrik' : 'Overview'"></strong></div>
             <div class="header-right"><span class="refresh-state" :class="{'is-refreshing':pollBusy}"><span class="dot" :class="runtimeHealthy?'green':'amber'"></span><span x-text="pollBusy?'Memperbarui…':runtimeHealthy?'Monitoring aktif':'Monitor tertunda'"></span></span>
                 <div class="theme-switch" role="group" aria-label="Tema tampilan">
                     <button @click="setTheme('light')" :class="{active:theme==='light'}" :aria-pressed="theme==='light'" title="Light" aria-label="Tema Light"><i data-lucide="sun"></i></button>
@@ -19,9 +19,9 @@
         </div>
         <nav class="nav-row" aria-label="Navigasi utama">
             <span class="nav-caption">Workspace</span>
-            <a class="nav-item active" href="/" aria-current="page"><i data-lucide="layout-dashboard"></i>Dashboard</a>
-            <button class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
-            <button class="nav-item" @click="open('power')"><i data-lucide="zap"></i>Listrik</button>
+            <a class="nav-item" :class="{active: activePage==='dashboard'}" href="/" :aria-current="activePage==='dashboard' ? 'page' : null" @click.prevent="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</a>
+            <button type="button" class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='power'}" :aria-current="activePage==='power' ? 'page' : null" @click="showPage('power')"><i data-lucide="zap"></i>Listrik</button>
             <span class="nav-divider"></span>
             <button class="nav-item" @click="open('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
             <button class="nav-item" @click="open('whatsapp')"><i data-lucide="message-circle"></i>WhatsApp</button>
@@ -43,6 +43,7 @@
     </header>
 
     <main id="main" class="main-container">
+        <div x-show="activePage==='dashboard'">
         <div class="page-heading">
             <div><div class="breadcrumb">Workspace <i data-lucide="chevron-right"></i> <span>Dashboard</span></div><h1>Dashboard Jaringan<span class="title-dot"></span></h1><p class="muted">Pusat kendali dan telemetri infrastruktur jaringan FTTH secara real-time.</p></div>
             <div class="workspace-status"><span class="lan-badge"><i data-lucide="network"></i> Core Optical Network</span><span class="muted small" x-show="db.demo"><span class="dot amber"></span> Lingkungan demo</span></div>
@@ -66,7 +67,7 @@
                 </div>
             </div>
             <button class="panel overview-bar degradation-bar" @click="open('degradation')"><span class="bar-icon red"><i data-lucide="activity"></i></span><strong>Redaman Memburuk</strong><span class="alert-count" x-text="db.summary.degraded_onus"></span><span class="degradation-description">ONU memerlukan perhatian</span><span class="bar-time">dihitung <span x-text="db.optical_calculated_at"></span></span><span class="detail-link">Lihat detail<i data-lucide="arrow-right"></i></span></button>
-            <button class="panel overview-bar power-overview-bar" :class="{'is-down': (db.power_summary?.down ?? 0) > 0}" x-show="(db.power_summary?.total ?? 0) > 0" @click="open('power')"><span class="bar-icon" :class="(db.power_summary?.down ?? 0) > 0 ? 'red' : 'green'"><i data-lucide="zap"></i></span><strong>Monitoring Listrik</strong><span class="power-pill" :class="(db.power_summary?.down ?? 0) > 0 ? 'is-down' : 'is-up'" x-text="(db.power_summary?.down ?? 0) > 0 ? db.power_summary.down + ' Padam' : (db.power_summary?.up ?? 0) + '/' + (db.power_summary?.total ?? 0) + ' Normal'"></span><span class="degradation-description" x-text="(db.power_summary?.down ?? 0) > 0 ? ('Padam: ' + (db.power_summary.down_names || []).join(', ')) : 'Semua titik listrik & IP sensor normal'"></span><span class="detail-link">Buka panel<i data-lucide="arrow-right"></i></span></button>
+            <button class="panel overview-bar power-overview-bar" :class="{'is-down': (db.power_summary?.down ?? 0) > 0}" x-show="(db.power_summary?.total ?? 0) > 0" @click="showPage('power')"><span class="bar-icon" :class="(db.power_summary?.down ?? 0) > 0 ? 'red' : 'green'"><i data-lucide="zap"></i></span><strong>Monitoring Listrik</strong><span class="power-pill" :class="(db.power_summary?.down ?? 0) > 0 ? 'is-down' : 'is-up'" x-text="(db.power_summary?.down ?? 0) > 0 ? db.power_summary.down + ' Padam' : (db.power_summary?.up ?? 0) + '/' + (db.power_summary?.total ?? 0) + ' Normal'"></span><span class="degradation-description" x-text="(db.power_summary?.down ?? 0) > 0 ? ('Padam: ' + (db.power_summary.down_names || []).join(', ')) : 'Semua titik listrik & IP sensor normal'"></span><span class="detail-link">Buka halaman<i data-lucide="arrow-right"></i></span></button>
         </section>
 
         <section class="search-section" aria-label="Pencarian global ONU">
@@ -114,11 +115,15 @@
             <div class="quota-details"><div><span class="muted small">Kapasitas paket</span><strong><span x-text="db.tenant.olt_quota"></span> OLT</strong></div><div><span class="muted small">Aktif hingga</span><strong x-text="expiry"></strong></div><div class="quota-usage"><div><span class="muted small">Kuota terpakai</span><strong><span x-text="db.olts.length"></span><span class="muted">/<span x-text="db.tenant.olt_quota"></span></span></strong></div><div class="progress-track"><span :style="'width:'+Math.min(100,db.olts.length/db.tenant.olt_quota*100)+'%'"></span></div></div></div>
             <button class="btn upgrade" @click="open('upgrade')" x-show="db.permissions.subscription"><i data-lucide="zap"></i>Upgrade<i data-lucide="arrow-up-right"></i></button>
         </section>
-        <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span>Internal & SaaS Ready<span class="footer-version">v1.0</span></span></footer>
         </div>
+        </div>
+        <div x-show="activePage==='power'" x-cloak>
+            @include('partials.power-monitors')
+        </div>
+        <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span>Internal & SaaS Ready<span class="footer-version">v1.0</span></span></footer>
     </main>
 
-    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp','power'].includes(modal)}" aria-labelledby="modal-title">
+    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':modal==='power-form','wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp'].includes(modal)}" aria-labelledby="modal-title">
         <div class="modal-header"><div><span class="eyebrow" x-text="selected?selected.name:'WORKSPACE · '+db.tenant.name"></span><h2 id="modal-title" x-text="modalTitle"></h2></div><button class="icon-button" @click="closeModal()" aria-label="Tutup dialog"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
             <div class="notice danger" x-ref="errorSummary" tabindex="-1" x-show="error" role="alert" x-text="error"></div>
@@ -172,7 +177,7 @@
             @include('partials.ftth')
             @include('partials.backups')
             @include('partials.notifications')
-            @include('partials.power-monitors')
+            @include('partials.power-monitor-form')
             <template x-if="modal==='upgrade'"><div><div class="plan-detail"><span class="quota-icon"><i data-lucide="zap"></i></span><h3>Paket <span x-text="db.tenant.plan_type"></span></h3><p class="muted">Terpakai <strong x-text="db.olts.length+'/'+db.tenant.olt_quota"></strong> OLT · aktif hingga <span x-text="expiry"></span></p></div><div class="notice">Kuota paket hanya dapat diubah oleh Super Admin. Hubungi pengelola platform untuk menambah kapasitas. Pembayaran dan aktivasi paket belum tersedia pada tahap ini.</div><div class="modal-actions"><button class="btn primary" @click="closeModal()">Mengerti</button></div></div></template>
             <template x-if="modal==='balance'"><div><span class="eyebrow">SALDO WORKSPACE</span><h3 class="balance-amount" x-text="money(db.tenant.balance)"></h3><p class="muted">Saldo data demo. Persetujuan top-up dikelola Super Admin.</p><div class="notice">Top-up dan riwayat transaksi tersedia setelah modul pembayaran diaktifkan.</div></div></template>
             @include('partials.api-tokens')

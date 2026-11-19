@@ -1,5 +1,26 @@
-<template x-if="modal==='power'"><div class="power-workspace">
-    <div class="power-hero-grid">
+<section class="power-page" aria-label="Monitoring Listrik">
+    <div class="page-heading power-page-heading">
+        <div>
+            <div class="breadcrumb">
+                <button type="button" class="power-crumb-link" @click="showPage('dashboard')">Workspace</button>
+                <i data-lucide="chevron-right"></i>
+                <span>Monitoring Listrik</span>
+            </div>
+            <h1>Monitoring Listrik<span class="title-dot"></span></h1>
+            <p class="muted">Pemantauan listrik PLN via Ping IP dan Double Check status live ONU di OLT secara otomatis.</p>
+        </div>
+        <div class="power-page-actions" x-show="db.permissions.operate">
+            <button type="button" class="btn secondary" :disabled="powerChecking" @click="checkAllPower()">
+                <i data-lucide="refresh-cw" :class="{'spinning':powerChecking}"></i>
+                <span x-text="powerChecking ? 'Mengecek Ping...' : 'Cek Ping Sekarang'"></span>
+            </button>
+            <button type="button" class="btn primary" @click="newPowerMonitor()">
+                <i data-lucide="plus"></i><span>Tambah Sensor</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="power-hero-grid is-page">
         <div class="power-kpi is-total">
             <div class="power-kpi-head">
                 <span>Total Sensor</span>
@@ -34,30 +55,54 @@
         </div>
     </div>
 
-    <div class="notice" x-show="powerData.settings && !powerData.settings.has_gateway">
-        <div>
-            <strong>Gateway WhatsApp / Telegram belum aktif.</strong>
-            <p class="muted small">Atur koneksi Gateway WhatsApp atau Bot Telegram utama terlebih dahulu agar alert padam listrik dapat terkirim.</p>
+    <div class="power-nav-strip">
+        <div class="power-tabs" role="tablist" aria-label="Menu Monitoring Listrik">
+            <button type="button" role="tab" :aria-selected="powerTab==='monitors'" @click="powerTab='monitors'">
+                <i data-lucide="zap"></i>
+                <span>Daftar Sensor</span>
+                <span class="count-pill" x-text="powerData.summary.total ?? 0"></span>
+            </button>
+            <button type="button" role="tab" :aria-selected="powerTab==='alerts'" @click="powerTab='alerts'">
+                <i data-lucide="message-circle"></i>
+                <span>Pengaturan Alert WA / TG</span>
+                <span class="power-tab-badge" :class="powerData.settings && !powerData.settings.has_gateway ? 'is-warn' : (powerSettingsForm.power_notify_enabled ? 'is-on' : '')" x-text="powerData.settings && !powerData.settings.has_gateway ? 'Perlu Setup' : (powerSettingsForm.power_notify_enabled ? 'Aktif' : 'Nonaktif')"></span>
+            </button>
+            <button type="button" role="tab" :aria-selected="powerTab==='logs'" @click="powerTab='logs'">
+                <i data-lucide="scroll-text"></i>
+                <span>Riwayat Alert</span>
+                <span class="count-pill" x-text="(powerData.logs || []).length"></span>
+            </button>
         </div>
-        <button type="button" class="btn secondary" style="margin-left:auto" @click="open('whatsapp')">Atur WhatsApp</button>
-    </div>
-
-    <div class="power-tabs" role="tablist" aria-label="Menu Monitoring Listrik">
-        <button type="button" role="tab" :aria-selected="powerTab==='monitors'" @click="powerTab='monitors'">
-            <i data-lucide="zap"></i>
-            <span>Daftar Sensor</span>
-            <span class="count-pill" x-text="powerData.summary.total ?? 0"></span>
-        </button>
-        <button type="button" role="tab" :aria-selected="powerTab==='alerts'" @click="powerTab='alerts'">
-            <i data-lucide="message-circle"></i>
-            <span>Alert WA / TG &amp; Riwayat</span>
-            <span class="power-tab-badge" :class="powerSettingsForm.power_notify_enabled ? 'is-on' : ''" x-text="powerSettingsForm.power_notify_enabled ? 'Aktif' : 'Nonaktif'"></span>
-        </button>
+        <div class="power-live-meta small muted">
+            <span class="dot green"></span>
+            <span>Auto-check 1 menit · Ping RTO verifikasi live ONU OLT</span>
+        </div>
     </div>
 
     <div x-show="powerTab==='monitors'" class="power-tab-panel">
-        <div class="power-controls">
-            <div class="power-controls-row">
+        <div class="power-filterbar">
+            <div class="onu-quick-filters" role="group" aria-label="Filter cepat status listrik">
+                <button type="button" @click="powerFilter.status='all'" :aria-pressed="powerFilter.status==='all'">
+                    <span>Semua</span>
+                    <span class="power-filter-count" x-text="powerData.summary.total ?? 0"></span>
+                </button>
+                <button type="button" @click="powerFilter.status='up'" :aria-pressed="powerFilter.status==='up'">
+                    <span class="dot green"></span>
+                    <span>Menyala</span>
+                    <span class="power-filter-count" x-text="powerData.summary.up ?? 0"></span>
+                </button>
+                <button type="button" @click="powerFilter.status='warning'" :aria-pressed="powerFilter.status==='warning'" x-show="(powerData.summary.warning ?? 0) > 0 || powerFilter.status === 'warning'">
+                    <span class="dot amber"></span>
+                    <span>Warning</span>
+                    <span class="power-filter-count" x-text="powerData.summary.warning ?? 0"></span>
+                </button>
+                <button type="button" @click="powerFilter.status='down'" :aria-pressed="powerFilter.status==='down'">
+                    <span class="dot red"></span>
+                    <span>Padam</span>
+                    <span class="power-filter-count" x-text="powerData.summary.down ?? 0"></span>
+                </button>
+            </div>
+            <div class="power-filterbar-inputs">
                 <label class="modal-search power-search">
                     <i data-lucide="search"></i>
                     <input x-model="powerFilter.q" placeholder="Cari lokasi, IP, SN ONU, atau group..." aria-label="Cari sensor listrik">
@@ -68,120 +113,10 @@
                         <option :value="grp" x-text="grp"></option>
                     </template>
                 </select>
-                <select class="power-select" x-model="powerFilter.status" aria-label="Filter Status Listrik">
-                    <option value="all">Semua Status</option>
-                    <option value="up">Menyala (UP)</option>
-                    <option value="warning">Ping RTO · ONU Working</option>
-                    <option value="down">Padam (DOWN)</option>
-                    <option value="unknown">Belum Dicek</option>
-                </select>
-            </div>
-            <div class="power-controls-actions">
-                <div class="onu-quick-filters" role="group" aria-label="Filter cepat status listrik">
-                    <button type="button" @click="powerFilter.status='all'" :aria-pressed="powerFilter.status==='all'">
-                        <span>Semua</span>
-                        <span class="power-filter-count" x-text="powerData.summary.total ?? 0"></span>
-                    </button>
-                    <button type="button" @click="powerFilter.status='up'" :aria-pressed="powerFilter.status==='up'">
-                        <span class="dot green"></span>
-                        <span>Menyala</span>
-                        <span class="power-filter-count" x-text="powerData.summary.up ?? 0"></span>
-                    </button>
-                    <button type="button" @click="powerFilter.status='warning'" :aria-pressed="powerFilter.status==='warning'" x-show="(powerData.summary.warning ?? 0) > 0 || powerFilter.status === 'warning'">
-                        <span class="dot amber"></span>
-                        <span>Warning</span>
-                        <span class="power-filter-count" x-text="powerData.summary.warning ?? 0"></span>
-                    </button>
-                    <button type="button" @click="powerFilter.status='down'" :aria-pressed="powerFilter.status==='down'">
-                        <span class="dot red"></span>
-                        <span>Padam</span>
-                        <span class="power-filter-count" x-text="powerData.summary.down ?? 0"></span>
-                    </button>
-                </div>
-                <div class="power-toolbar-buttons" x-show="db.permissions.operate">
-                    <button type="button" class="btn secondary" :disabled="powerChecking" @click="checkAllPower()">
-                        <i data-lucide="refresh-cw" :class="{'spinning':powerChecking}"></i>
-                        <span x-text="powerChecking ? 'Mengecek Ping...' : 'Cek Ping Sekarang'"></span>
-                    </button>
-                    <button type="button" class="btn primary" @click="newPowerMonitor()">
-                        <i data-lucide="plus"></i><span>Tambah Sensor</span>
-                    </button>
-                </div>
             </div>
         </div>
 
-        <template x-if="powerForm">
-            <form class="inline-editor power-editor-card form-stack" @submit.prevent="savePowerMonitor()">
-                <div class="power-editor-head">
-                    <div class="power-editor-title">
-                        <span class="power-editor-badge" x-text="powerForm.id ? 'Edit Sensor' : 'Sensor Baru'"></span>
-                        <h3 x-text="powerForm.id ? powerForm.name : 'Tambah Sensor Monitoring Listrik'"></h3>
-                        <p class="muted small">Pantau listrik PLN via Ping IP, status ONU OLT, atau mode ganda (Ping RTO otomatis cek live ONU ke OLT).</p>
-                    </div>
-                    <button type="button" class="icon-button" @click="powerForm=null" aria-label="Tutup form"><i data-lucide="x"></i></button>
-                </div>
-
-                <div class="form-grid">
-                    <label>Nama Perangkat / Lokasi
-                        <input x-model="powerForm.name" required maxlength="120" placeholder="MONITORING LISTRIK CIPAKU">
-                        <small class="red-text" x-show="fieldError('name')" x-text="fieldError('name')"></small>
-                    </label>
-                    <label>Device Group
-                        <input x-model="powerForm.group_name" maxlength="120" placeholder="MONITORING-LISTRIK-ONU-BANDUNG">
-                    </label>
-                    <label>Area / Keterangan Lokasi (opsional)
-                        <input x-model="powerForm.location" maxlength="160" placeholder="OLT / POP / Lokasi Gardu">
-                    </label>
-                    <label>Mode Deteksi
-                        <select x-model="powerForm.monitor_type" @change="onPowerTypeChange()">
-                            <option value="both">Ping IP + Double-Check ONU OLT (Ganda)</option>
-                            <option value="ping">Ping IP (ICMP) saja</option>
-                            <option value="onu">Status ONU di OLT saja</option>
-                        </select>
-                    </label>
-                    <label x-show="powerForm.monitor_type !== 'onu'">Alamat IP Target (Ping ICMP)
-                        <input class="mono" x-model="powerForm.ip_address" :required="powerForm.monitor_type !== 'onu'" maxlength="45" placeholder="10.10.1.100">
-                        <small class="red-text" x-show="fieldError('ip_address')" x-text="fieldError('ip_address')"></small>
-                    </label>
-                    <label x-show="powerForm.monitor_type !== 'ping'">Filter OLT (opsional)
-                        <select x-model="powerForm.olt_id" @change="loadPowerOnus(powerForm.olt_id, powerOnuSearch)">
-                            <option value="">Semua OLT</option>
-                            <template x-for="olt in db.olts" :key="olt.id">
-                                <option :value="String(olt.id)" x-text="olt.name"></option>
-                            </template>
-                        </select>
-                    </label>
-                    <label x-show="powerForm.monitor_type !== 'ping'">Cari ONU (SN / Nama)
-                        <input x-model="powerOnuSearch" @input.debounce.250ms="loadPowerOnus(powerForm.olt_id, powerOnuSearch)" placeholder="Ketik SN ZTEG... atau nama ONU">
-                    </label>
-                    <label x-show="powerForm.monitor_type !== 'ping'" :class="{'full-width': powerForm.monitor_type === 'onu'}">ONU Terkait
-                        <select x-model="powerForm.onu_id" :required="powerForm.monitor_type !== 'ping'">
-                            <option value="">— Pilih ONU Sensor —</option>
-                            <template x-for="onu in powerOnuOptions" :key="onu.id">
-                                <option :value="String(onu.id)" x-text="oltName(onu.olt_id) + ' · ' + (onu.name && onu.name!==onu.sn ? onu.name + ' · ' : '') + onu.sn + ' (' + onu.interface + ')'"></option>
-                            </template>
-                        </select>
-                        <small class="red-text" x-show="fieldError('onu_id')" x-text="fieldError('onu_id')"></small>
-                    </label>
-                    <label :class="{'full-width': powerForm.monitor_type !== 'ping'}">Override Grup WA Khusus Sensor Ini (opsional)
-                        <input x-model="powerForm.whatsapp_recipients_override" maxlength="500" placeholder="Kosongkan untuk mengikuti grup WA Listrik global">
-                    </label>
-                </div>
-
-                <div class="power-editor-footer">
-                    <label class="checkbox-row">
-                        <input type="checkbox" x-model="powerForm.is_enabled">
-                        <span>Aktifkan pengecekan otomatis &amp; alert padam/menyala</span>
-                    </label>
-                    <div class="modal-actions" style="margin-top:0">
-                        <button type="button" class="btn secondary" @click="powerForm=null" :disabled="busy">Batal</button>
-                        <button type="submit" class="btn primary" :disabled="busy" x-text="busy ? 'Menyimpan...' : 'Simpan & Cek Status'"></button>
-                    </div>
-                </div>
-            </form>
-        </template>
-
-        <div class="table-scroll power-table-wrap" x-show="filteredPowerMonitors.length">
+        <div class="table-scroll power-table-wrap is-fullpage" x-show="filteredPowerMonitors.length">
             <table class="power-table">
                 <thead>
                     <tr>
@@ -271,12 +206,20 @@
     </div>
 
     <div x-show="powerTab==='alerts'" class="power-tab-panel">
-        <form class="inline-editor power-editor-card form-stack" x-show="db.permissions.operate" @submit.prevent="savePowerSettings()">
+        <div class="notice" x-show="powerData.settings && !powerData.settings.has_gateway">
+            <div>
+                <strong>Gateway WhatsApp / Telegram belum aktif.</strong>
+                <p class="muted small">Atur koneksi Gateway WhatsApp atau Bot Telegram utama terlebih dahulu agar alert padam listrik dapat terkirim.</p>
+            </div>
+            <button type="button" class="btn secondary" style="margin-left:auto" @click="open('whatsapp')">Atur WhatsApp</button>
+        </div>
+
+        <form class="panel power-settings-card form-stack" x-show="db.permissions.operate" @submit.prevent="savePowerSettings()">
             <div class="power-editor-head">
                 <div class="power-editor-title">
-                    <span class="power-editor-badge">Notifikasi</span>
-                    <h3>Tujuan Alert Khusus Monitoring Listrik (WA &amp; Telegram)</h3>
-                    <p class="muted small">Jika dikosongkan, alert mengikuti grup default dari menu WhatsApp / Telegram utama.</p>
+                    <span class="power-editor-badge">Notifikasi Khusus Listrik</span>
+                    <h3>Tujuan Alert Monitoring Listrik (WA &amp; Telegram)</h3>
+                    <p class="muted small">Kosongkan kolom grup bila ingin mengikuti grup default dari menu WhatsApp / Telegram utama.</p>
                 </div>
             </div>
             <label class="checkbox-row">
@@ -304,43 +247,39 @@
                 <button type="submit" class="btn primary" :disabled="busy" x-text="busy ? 'Menyimpan...' : 'Simpan Pengaturan Listrik'"></button>
             </div>
         </form>
-
-        <section class="power-log-section">
-            <div class="power-section-head">
-                <h3>Riwayat Alert Monitoring Listrik Terakhir</h3>
-                <span class="count-pill" x-text="(powerData.logs || []).length"></span>
-            </div>
-            <div class="table-scroll power-table-wrap" x-show="(powerData.logs || []).length">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Waktu</th>
-                            <th>Channel</th>
-                            <th>Event</th>
-                            <th>Tujuan</th>
-                            <th>Status</th>
-                            <th>Keterangan</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="log in powerData.logs || []" :key="log.id">
-                            <tr>
-                                <td x-text="dateTime(log.sent_at)"></td>
-                                <td><span class="tag" x-text="log.channel==='whatsapp'?'WhatsApp':'Telegram'"></span></td>
-                                <td><span class="status-badge" :class="log.event_type==='power_down'?'phase-los':(log.event_type==='power_up'?'online':'offline')" x-text="log.event_type==='power_down'?'Listrik Padam':(log.event_type==='power_up'?'Menyala Kembali':'Tes Alert')"></span></td>
-                                <td class="mono" x-text="log.recipient"></td>
-                                <td><span class="status-badge" :class="log.status==='sent'?'online':'phase-los'" x-text="log.status==='sent'?'Terkirim':'Gagal'"></span></td>
-                                <td x-text="log.error || 'OK'"></td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-            <div class="empty-state panel" x-show="!(powerData.logs || []).length">
-                <i data-lucide="send"></i>
-                <strong>Belum ada riwayat alert listrik</strong>
-                <p class="muted">Log pengiriman WhatsApp/Telegram untuk event listrik padam, pulih, atau tes kirim akan muncul di sini.</p>
-            </div>
-        </section>
     </div>
-</div></template>
+
+    <div x-show="powerTab==='logs'" class="power-tab-panel">
+        <div class="table-scroll power-table-wrap is-fullpage" x-show="(powerData.logs || []).length">
+            <table class="power-table">
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Channel</th>
+                        <th>Event</th>
+                        <th>Tujuan</th>
+                        <th>Status</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="log in powerData.logs || []" :key="log.id">
+                        <tr>
+                            <td x-text="dateTime(log.sent_at)"></td>
+                            <td><span class="tag" x-text="log.channel==='whatsapp'?'WhatsApp':'Telegram'"></span></td>
+                            <td><span class="status-badge" :class="log.event_type==='power_down'?'phase-los':(log.event_type==='power_up'?'online':'offline')" x-text="log.event_type==='power_down'?'Listrik Padam':(log.event_type==='power_up'?'Menyala Kembali':'Tes Alert')"></span></td>
+                            <td class="mono" x-text="log.recipient"></td>
+                            <td><span class="status-badge" :class="log.status==='sent'?'online':'phase-los'" x-text="log.status==='sent'?'Terkirim':'Gagal'"></span></td>
+                            <td x-text="log.error || 'OK'"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div class="empty-state panel" x-show="!(powerData.logs || []).length">
+            <i data-lucide="send"></i>
+            <strong>Belum ada riwayat alert listrik</strong>
+            <p class="muted">Log pengiriman WhatsApp/Telegram untuk event listrik padam, pulih, atau tes kirim akan muncul di sini.</p>
+        </div>
+    </div>
+</section>
