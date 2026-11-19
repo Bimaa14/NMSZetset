@@ -150,6 +150,7 @@
                                     <div class="power-target-top">
                                         <span class="power-ip-pill mono" x-show="m.ip_address" x-text="m.ip_address"></span>
                                         <span class="tag" x-text="m.monitor_type === 'ping' ? 'Ping IP' : (m.monitor_type === 'onu' ? 'ONU OLT' : 'Ping + ONU')"></span>
+                                        <span class="power-sn-pill mono" x-show="m.onu?.sn" x-text="m.onu.sn" title="Serial Number ONU"></span>
                                     </div>
                                     <small class="mono muted" x-show="m.onu_label" x-text="m.onu_label"></small>
                                 </div>
@@ -171,16 +172,18 @@
                                 <small class="red-text" x-show="m.status === 'down' && m.last_down_at" x-text="'Padam sejak ' + time(m.last_down_at)"></small>
                                 <small class="muted" x-show="m.status === 'up' && m.last_up_at" x-text="'Normal sejak ' + time(m.last_up_at)"></small>
                             </td>
-                            <td class="row-actions power-row-actions" x-show="db.permissions.operate">
-                                <button type="button" class="icon-button" x-show="m.monitor_type !== 'onu'" @click="checkOnePower(m)" :disabled="powerCheckingId === m.id" title="Cek Ping sekarang">
-                                    <i data-lucide="refresh-cw" :class="{'spinning':powerCheckingId === m.id}"></i>
-                                </button>
-                                <button type="button" class="icon-button" @click="editPowerMonitor(m)" title="Edit sensor">
-                                    <i data-lucide="pencil"></i>
-                                </button>
-                                <button type="button" class="icon-button red-text" @click="deletePowerMonitor(m)" title="Hapus sensor">
-                                    <i data-lucide="trash-2"></i>
-                                </button>
+                            <td x-show="db.permissions.operate">
+                                <div class="row-actions power-row-actions">
+                                    <button type="button" class="icon-button" x-show="m.monitor_type !== 'onu'" @click="checkOnePower(m)" :disabled="powerCheckingId === m.id" title="Cek Ping sekarang">
+                                        <i data-lucide="refresh-cw" :class="{'spinning':powerCheckingId === m.id}"></i>
+                                    </button>
+                                    <button type="button" class="icon-button" @click="editPowerMonitor(m)" title="Edit sensor">
+                                        <i data-lucide="pencil"></i>
+                                    </button>
+                                    <button type="button" class="icon-button red-text" @click="deletePowerMonitor(m)" title="Hapus sensor">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </template>

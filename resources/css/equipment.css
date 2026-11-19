@@ -1000,6 +1000,15 @@ dialog.power-form-dialog {
     border: 1px solid var(--line);
     color: var(--text);
 }
+.power-sn-pill {
+    display: inline-flex;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    background: color-mix(in srgb, var(--cyan) 9%, var(--input));
+    border: 1px solid color-mix(in srgb, var(--cyan) 24%, var(--line));
+    color: var(--cyan);
+}
 .power-latency-val {
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;

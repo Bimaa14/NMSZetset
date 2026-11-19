@@ -120,7 +120,7 @@
         <div x-show="activePage==='power'" x-cloak>
             @include('partials.power-monitors')
         </div>
-        <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span>Internal & SaaS Ready<span class="footer-version">v1.0</span></span></footer>
+        <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span class="footer-version">v1.0</span></footer>
     </main>
 
     <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':modal==='power-form','wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp'].includes(modal)}" aria-labelledby="modal-title">

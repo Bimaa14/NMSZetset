@@ -123,7 +123,7 @@ Alpine.data('dashboard', () => Object.defineProperties({
             if (this.powerFilter?.group && this.powerFilter.group !== 'all' && m.group_name !== this.powerFilter.group) return false;
             if (this.powerFilter?.status && this.powerFilter.status !== 'all' && m.status !== this.powerFilter.status) return false;
             if (!q) return true;
-            return [m.name, m.group_name, m.location, m.ip_address, m.onu_label].some(v => (v || '').toLowerCase().includes(q));
+            return [m.name, m.group_name, m.location, m.ip_address, m.onu_label, m.onu?.sn].some(v => (v || '').toLowerCase().includes(q));
         });
     },
     get modalTitle() { if(this.modal==='equipment')return 'Card / Slot semua OLT';if(this.modal==='onus'&&!this.selected)return 'ONU semua OLT';if(this.modal==='ports')return 'Port '+this.ponLabel();if(this.modal==='power-form')return this.powerForm?.id ? 'Edit Sensor Listrik' : 'Tambah Sensor Listrik'; return ({ power: 'Monitoring Listrik (PLN / Ping)', profiles: 'Profil layanan', provision: 'Pasang ONU', profile: 'Profil Anda', telegram: 'Notifikasi Telegram & WhatsApp', whatsapp: 'Notifikasi WhatsApp & Telegram', api: 'Open API', tags: 'Tags pelanggan', vpn: 'VPN', balance: 'Saldo', affiliate: 'Affiliate', staff: 'Staff workspace', audit: 'Audit aktivitas', degradation: 'Redaman Memburuk', maps: 'FTTH Maps', backups:'Backup konfigurasi', upgrade: 'Upgrade paket', add: 'Tambah OLT', edit: 'Edit OLT', delete: 'Hapus perangkat OLT', info: 'Informasi OLT', view: 'Detail sistem OLT', onus: 'Daftar ONU', cli: 'Web CLI' })[this.modal] || ''; },
