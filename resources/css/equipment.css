@@ -1131,3 +1131,70 @@ dialog.lumina-confirm-dialog::backdrop {
     gap: 9px;
     padding-top: 4px;
 }
+
+/* 8. Full-Page Workspace Views (WhatsApp, Telegram, Profile, API, Profiles, Tags, Staff, Audit) */
+.ws-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 10px;
+    animation: content-enter .32s ease-out both;
+}
+.ws-page-heading {
+    margin-bottom: 0 !important;
+    align-items: flex-end !important;
+}
+.ws-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.ws-card {
+    padding: 22px 24px;
+    border-radius: 14px;
+}
+.ws-profile-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.ws-profile-summary {
+    display: flex;
+    flex-direction: column;
+}
+.ws-two-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    gap: 18px;
+    align-items: start;
+}
+.ws-split-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+.ws-role-guide {
+    margin: 0 !important;
+    background: var(--panel) !important;
+    border-radius: 12px !important;
+}
+.ws-filter-card {
+    padding: 14px 16px;
+    border-radius: 12px;
+}
+.ws-filter-card .audit-filters .modal-search {
+    background: var(--input);
+}
+@media (max-width: 960px) {
+    .ws-profile-grid,
+    .ws-two-col,
+    .ws-split-layout {
+        grid-template-columns: 1fr;
+    }
+    .ws-page-heading {
+        align-items: flex-start !important;
+        flex-direction: column;
+    }
+}

@@ -5,7 +5,7 @@
     <header class="site-header">
         <div class="top-row">
             <a class="brand" href="/" aria-label="NMS OLT ZTE dashboard"><span class="brand-mark">@include('partials.lumina-logo')</span><span>LUMINA <b>NMS</b><small>OPTICAL NETWORK SYSTEM</small></span></a>
-            <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong x-text="activePage==='power' ? 'Monitoring Listrik' : 'Overview'"></strong></div>
+            <div class="topbar-context"><span class="workspace-icon"><i data-lucide="layers-2"></i></span><span x-text="db.tenant.name"></span><i data-lucide="chevron-right"></i><strong x-text="pageLabel()"></strong></div>
             <div class="header-right"><span class="refresh-state" :class="{'is-refreshing':pollBusy}"><span class="dot" :class="runtimeHealthy?'green':'amber'"></span><span x-text="pollBusy?'Memperbarui…':runtimeHealthy?'Monitoring aktif':'Monitor tertunda'"></span></span>
                 <div class="theme-switch" role="group" aria-label="Tema tampilan">
                     <button @click="setTheme('light')" :class="{active:theme==='light'}" :aria-pressed="theme==='light'" title="Light" aria-label="Tema Light"><i data-lucide="sun"></i></button>
@@ -23,12 +23,12 @@
             <button type="button" class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
             <button type="button" class="nav-item" :class="{active: activePage==='power'}" :aria-current="activePage==='power' ? 'page' : null" @click="showPage('power')"><i data-lucide="zap"></i>Listrik</button>
             <span class="nav-divider"></span>
-            <button class="nav-item" @click="open('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
-            <button class="nav-item" @click="open('whatsapp')"><i data-lucide="message-circle"></i>WhatsApp</button>
-            <button class="nav-item" @click="open('telegram')"><i data-lucide="send"></i>Telegram</button>
-            <button class="nav-item" x-show="db.permissions.api" @click="open('api')"><i data-lucide="code-xml"></i>API</button>
-            <button class="nav-item" x-show="db.permissions.operate" @click="open('profiles')"><i data-lucide="layers-2"></i>Profil layanan</button>
-            <button class="nav-item" x-show="db.permissions.tags" @click="open('tags')"><i data-lucide="tags"></i>Tags</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='profile'}" :aria-current="activePage==='profile' ? 'page' : null" @click="showPage('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='whatsapp'}" :aria-current="activePage==='whatsapp' ? 'page' : null" @click="showPage('whatsapp')"><i data-lucide="message-circle"></i>WhatsApp</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='telegram'}" :aria-current="activePage==='telegram' ? 'page' : null" @click="showPage('telegram')"><i data-lucide="send"></i>Telegram</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='api'}" :aria-current="activePage==='api' ? 'page' : null" x-show="db.permissions.api" @click="showPage('api')"><i data-lucide="code-xml"></i>API</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='profiles'}" :aria-current="activePage==='profiles' ? 'page' : null" x-show="db.permissions.operate" @click="showPage('profiles')"><i data-lucide="layers-2"></i>Profil layanan</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='tags'}" :aria-current="activePage==='tags' ? 'page' : null" x-show="db.permissions.tags" @click="showPage('tags')"><i data-lucide="tags"></i>Tags</button>
             <template x-if="db.subscription && db.permissions.subscription"><div class="nav-group">
                 <span class="nav-divider"></span>
                 <button class="nav-item" @click="open('vpn')"><i data-lucide="shield-check"></i>VPN</button>
@@ -36,8 +36,8 @@
                 <button class="nav-item" @click="open('affiliate')"><i data-lucide="users-round"></i>Affiliate</button>
             </div></template>
             <span class="nav-divider" x-show="db.permissions.staff"></span>
-            <button class="nav-item" x-show="db.permissions.staff" @click="open('staff')"><i data-lucide="contact-round"></i>Staff</button>
-            <button class="nav-item" x-show="db.permissions.audit" @click="open('audit')"><i data-lucide="scroll-text"></i>Audit</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='staff'}" :aria-current="activePage==='staff' ? 'page' : null" x-show="db.permissions.staff" @click="showPage('staff')"><i data-lucide="contact-round"></i>Staff</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='audit'}" :aria-current="activePage==='audit' ? 'page' : null" x-show="db.permissions.audit" @click="showPage('audit')"><i data-lucide="scroll-text"></i>Audit</button>
             <span class="nav-tenant"><span class="dot green"></span><span x-text="db.tenant.name"></span></span>
         </nav>
     </header>
@@ -117,13 +117,36 @@
         </section>
         </div>
         </div>
+        <div class="notice danger" x-show="!modal && error" x-cloak role="alert" x-text="error"></div>
+        <div x-show="!modal" x-cloak>@include('partials.confirm-action')</div>
         <div x-show="activePage==='power'" x-cloak>
             @include('partials.power-monitors')
+        </div>
+        <div x-show="['whatsapp','telegram'].includes(activePage)" x-cloak>
+            @include('partials.notifications')
+        </div>
+        <div x-show="activePage==='profile'" x-cloak>
+            @include('partials.profile')
+        </div>
+        <div x-show="activePage==='api'" x-cloak>
+            @include('partials.api-tokens')
+        </div>
+        <div x-show="activePage==='profiles'" x-cloak>
+            @include('partials.service-profiles')
+        </div>
+        <div x-show="activePage==='tags'" x-cloak>
+            @include('partials.tags')
+        </div>
+        <div x-show="activePage==='staff'" x-cloak>
+            @include('partials.staff')
+        </div>
+        <div x-show="activePage==='audit'" x-cloak>
+            @include('partials.audit')
         </div>
         <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span class="footer-version">v1.0</span></footer>
     </main>
 
-    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':modal==='power-form','wide-dialog':['degradation','onus','ports','view','audit','maps','staff','tags','provision','profiles','telegram','whatsapp'].includes(modal)}" aria-labelledby="modal-title">
+    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':modal==='power-form','wide-dialog':['degradation','onus','ports','view','maps','provision'].includes(modal)}" aria-labelledby="modal-title">
         <div class="modal-header"><div><span class="eyebrow" x-text="selected?selected.name:'WORKSPACE · '+db.tenant.name"></span><h2 id="modal-title" x-text="modalTitle"></h2></div><button class="icon-button" @click="closeModal()" aria-label="Tutup dialog"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
             <div class="notice danger" x-ref="errorSummary" tabindex="-1" x-show="error" role="alert" x-text="error"></div>
@@ -170,17 +193,11 @@
             @include('partials.provisioning')
             <template x-if="modal==='delete' && selected"><div><div class="delete-symbol"><i data-lucide="trash-2"></i></div><p>Hapus <strong x-text="selected.name"></strong> dari jaringan Anda?</p><p class="muted">Seluruh port, ONU, tag relasi, dan log optik perangkat ini akan ikut terhapus. Riwayat audit tetap disimpan.</p><div class="modal-actions"><button class="btn secondary" @click="closeModal()">Batal</button><button class="btn danger-solid" @click="deleteOlt()" :disabled="busy" x-text="busy?'Menghapus...':'Ya, hapus OLT'"></button></div></div></template>
             <template x-if="modal==='cli'"><div><div class="notice"><i data-lucide="info"></i><span x-text="selected?.connection_mode==='real'?'CLI nyata. Setiap perintah membuka sesi baru. Jangan kirim password melalui terminal; gunakan form kredensial.':'Simulator Web CLI. Ketik help untuk melihat perintah.'"></span></div><pre class="terminal-output" x-text="terminalOutput" aria-live="polite"></pre><form class="terminal-input" @submit.prevent="runCommand()"><span>ZXAN#</span><label class="sr-only" for="cli-command">Perintah CLI</label><input id="cli-command" x-model="command" @keydown.up.prevent="history(-1)" @keydown.down.prevent="history(1)" @keydown.ctrl.l.prevent="terminalOutput=''" maxlength="512" autocomplete="off" spellcheck="false" placeholder="show version-running" required :disabled="busy"><button class="icon-button" type="submit" :disabled="busy" aria-label="Jalankan perintah"><i data-lucide="corner-down-left"></i></button></form></div></template>
-            @include('partials.profile')
-            @include('partials.staff')
-            @include('partials.audit')
-            @include('partials.tags')
             @include('partials.ftth')
             @include('partials.backups')
-            @include('partials.notifications')
             @include('partials.power-monitor-form')
             <template x-if="modal==='upgrade'"><div><div class="plan-detail"><span class="quota-icon"><i data-lucide="zap"></i></span><h3>Paket <span x-text="db.tenant.plan_type"></span></h3><p class="muted">Terpakai <strong x-text="db.olts.length+'/'+db.tenant.olt_quota"></strong> OLT · aktif hingga <span x-text="expiry"></span></p></div><div class="notice">Kuota paket hanya dapat diubah oleh Super Admin. Hubungi pengelola platform untuk menambah kapasitas. Pembayaran dan aktivasi paket belum tersedia pada tahap ini.</div><div class="modal-actions"><button class="btn primary" @click="closeModal()">Mengerti</button></div></div></template>
             <template x-if="modal==='balance'"><div><span class="eyebrow">SALDO WORKSPACE</span><h3 class="balance-amount" x-text="money(db.tenant.balance)"></h3><p class="muted">Saldo data demo. Persetujuan top-up dikelola Super Admin.</p><div class="notice">Top-up dan riwayat transaksi tersedia setelah modul pembayaran diaktifkan.</div></div></template>
-            @include('partials.api-tokens')
             <template x-if="['vpn','affiliate'].includes(modal)"><div><div class="module-symbol"><i data-lucide="plug-zap"></i></div><h3 x-text="modalTitle+' belum terhubung'"></h3><p class="muted" x-text="moduleDescription"></p><div class="notice">Modul ini disiapkan dalam navigasi sesuai PRD. Aktivasi integrasi dilanjutkan pada tahap berikutnya.</div></div></template>
         </div>
     </dialog>
