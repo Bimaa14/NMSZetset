@@ -21,6 +21,7 @@
             <span class="nav-caption">Workspace</span>
             <a class="nav-item" :class="{active: activePage==='dashboard'}" href="/" :aria-current="activePage==='dashboard' ? 'page' : null" @click.prevent="showPage('dashboard')"><i data-lucide="layout-dashboard"></i>Dashboard</a>
             <button type="button" class="nav-item" @click="open('onus')"><i data-lucide="router"></i>ONU</button>
+            <button type="button" class="nav-item" :class="{active: activePage==='groups'}" :aria-current="activePage==='groups' ? 'page' : null" @click="showPage('groups')"><i data-lucide="users-round"></i>Grup Pelanggan</button>
             <button type="button" class="nav-item" :class="{active: activePage==='power'}" :aria-current="activePage==='power' ? 'page' : null" @click="showPage('power')"><i data-lucide="zap"></i>Listrik</button>
             <span class="nav-divider"></span>
             <button type="button" class="nav-item" :class="{active: activePage==='profile'}" :aria-current="activePage==='profile' ? 'page' : null" @click="showPage('profile')"><i data-lucide="circle-user-round"></i>Profil</button>
@@ -122,6 +123,9 @@
         <div x-show="activePage==='power'" x-cloak>
             @include('partials.power-monitors')
         </div>
+        <div x-show="activePage==='groups'" x-cloak>
+            @include('partials.customer-groups')
+        </div>
         <div x-show="['whatsapp','telegram'].includes(activePage)" x-cloak>
             @include('partials.notifications')
         </div>
@@ -196,6 +200,7 @@
             @include('partials.ftth')
             @include('partials.backups')
             @include('partials.power-monitor-form')
+            @include('partials.customer-group-form')
             <template x-if="modal==='upgrade'"><div><div class="plan-detail"><span class="quota-icon"><i data-lucide="zap"></i></span><h3>Paket <span x-text="db.tenant.plan_type"></span></h3><p class="muted">Terpakai <strong x-text="db.olts.length+'/'+db.tenant.olt_quota"></strong> OLT · aktif hingga <span x-text="expiry"></span></p></div><div class="notice">Kuota paket hanya dapat diubah oleh Super Admin. Hubungi pengelola platform untuk menambah kapasitas. Pembayaran dan aktivasi paket belum tersedia pada tahap ini.</div><div class="modal-actions"><button class="btn primary" @click="closeModal()">Mengerti</button></div></div></template>
             <template x-if="modal==='balance'"><div><span class="eyebrow">SALDO WORKSPACE</span><h3 class="balance-amount" x-text="money(db.tenant.balance)"></h3><p class="muted">Saldo data demo. Persetujuan top-up dikelola Super Admin.</p><div class="notice">Top-up dan riwayat transaksi tersedia setelah modul pembayaran diaktifkan.</div></div></template>
             <template x-if="['vpn','affiliate'].includes(modal)"><div><div class="module-symbol"><i data-lucide="plug-zap"></i></div><h3 x-text="modalTitle+' belum terhubung'"></h3><p class="muted" x-text="moduleDescription"></p><div class="notice">Modul ini disiapkan dalam navigasi sesuai PRD. Aktivasi integrasi dilanjutkan pada tahap berikutnya.</div></div></template>

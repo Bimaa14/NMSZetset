@@ -234,7 +234,7 @@ class ZteTelnetDriver
                 }
                 $onu = &$snapshot['ports'][$target['p']]['onus'][$target['o']];
                 $index = str_replace('gpon-olt_', '', $snapshot['ports'][$target['p']]['interface_name']).':'.$onu['onu_index'];
-                $labels = array_intersect_key($onu, array_flip(['device_name', 'device_description']));
+                $labels = array_intersect_key($onu, array_flip(['device_name', 'device_description', 'vlan_id', 'vlan_ids']));
                 foreach (['show running-config interface gpon-onu_'.$index, 'show gpon onu detail-info gpon-onu_'.$index] as $command) {
                     if (microtime(true) >= $nameDeadline) {
                         break;

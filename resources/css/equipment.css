@@ -1198,3 +1198,133 @@ dialog.lumina-confirm-dialog::backdrop {
         flex-direction: column;
     }
 }
+
+/* 9. Customer Groups (VLAN-Based Grouping) */
+.group-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 16px;
+}
+.group-card {
+    position: relative;
+    overflow: hidden;
+    padding: 18px 20px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.group-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--group-accent, var(--line));
+    opacity: 0.85;
+}
+.group-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--group-accent, var(--cyan)) 45%, var(--line));
+}
+.group-card.is-selected {
+    border-color: var(--group-accent, var(--cyan));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--group-accent, var(--cyan)) 22%, transparent);
+}
+.group-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.group-card-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+}
+.group-color-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+    box-shadow: 0 0 8px currentColor;
+}
+.group-card-title h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 650;
+}
+.group-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.group-card-actions .icon-button {
+    width: 30px;
+    height: 30px;
+}
+.group-vlan-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.group-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+.group-metrics > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.group-metrics strong {
+    font-size: 18px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
+.group-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.group-progress .onu-track {
+    flex: 1;
+}
+.vlan-chips-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.vlan-chips-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+.vlan-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    font-size: 11px;
+    background: var(--input);
+    border: 1px solid var(--line);
+    color: var(--text);
+}
+.vlan-chip:hover {
+    border-color: var(--cyan);
+}
+.vlan-chip.is-active {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-color: color-mix(in srgb, var(--cyan) 35%, var(--line));
+}

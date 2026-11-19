@@ -56,6 +56,7 @@ class DashboardController extends Controller
             'power_summary'=>['total'=>$powerRows->count(),'up'=>$powerRows->where('status','up')->count(),'down'=>$powerRows->where('status','down')->count(),'down_names'=>$powerRows->where('status','down')->pluck('name')->values()->all()],
             'staff' => $user->allows('staff') ? $tenant->users()->get(['id', 'name', 'username', 'email', 'role']) : [],
             'tags' => Tag::where('tenant_id', $tenant->id)->withCount(['onus'=>fn($q)=>$q->current()])->get(),
+            'customer_groups' => \App\Models\CustomerGroup::where('tenant_id', $tenant->id)->orderBy('name')->get(['id', 'name', 'color_hex', 'vlan_ids', 'description']),
             'audit' => $user->allows('audit') ? AuditLog::where('tenant_id', $tenant->id)->latest('id')->limit(100)->get() : [],
             'subscription' => (bool) config('nms.subscription'), 'demo' => app()->environment('local') && config('nms.demo'),
             'equipment_updated_at' => $lastSync ? $lastSync->timezone('Asia/Jakarta')->format('H.i').' WIB' : 'belum tersedia', 'optical_calculated_at' => $opticalTime ? \Illuminate\Support\Carbon::parse($opticalTime)->timezone('Asia/Jakarta')->format('H.i').' WIB' : 'belum tersedia', 'threshold' => config('nms.bad_rx_threshold'),

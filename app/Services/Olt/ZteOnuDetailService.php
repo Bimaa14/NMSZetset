@@ -154,6 +154,20 @@ class ZteOnuDetailService {
                         foreach($toPersist as $sec=>$payload){
                             OnuDetailSnapshot::updateOrCreate(['onu_id'=>$onu->id,'section'=>$sec,'source'=>'real'],['payload'=>$payload,'observed_at'=>$stamp]);
                         }
+                        if(isset($toPersist['wan'])){
+                            $wanVlans=[];
+                            foreach($toPersist['wan']['data']['items']??[] as $item){
+                                if(isset($item['vlan_id'])&&is_numeric($item['vlan_id']))$wanVlans[]=(int)$item['vlan_id'];
+                            }
+                            $wanVlans=\App\Models\CustomerGroup::normalizeVlans($wanVlans);
+                            if($wanVlans){
+                                $freshWan=Onu::whereKey($onu->id)->lockForUpdate()->first();
+                                if($freshWan){
+                                    $merged=\App\Models\CustomerGroup::normalizeVlans(array_merge(\App\Models\CustomerGroup::onuVlans($freshWan),$wanVlans));
+                                    $freshWan->update(['vlan_id'=>$freshWan->vlan_id?:$wanVlans[0],'vlan_ids'=>$merged]);
+                                }
+                            }
+                        }
                         if(isset($toPersist['info'])&&is_array($infoData)){
                             $fresh=Onu::whereKey($onu->id)->with('port')->lockForUpdate()->first();
                             if(!$fresh)return;

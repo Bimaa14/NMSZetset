@@ -274,19 +274,37 @@ class ZteOutputParser
     {
         ZteTelnetClient::assertAccepted($output);
         $labels = [];
+        $vlansByInterface = [];
         $interface = null;
+        $block = null;
+        $addVlan = static function (string $iface, int $vlan) use (&$vlansByInterface): void {
+            if ($vlan >= 1 && $vlan <= 4094) {
+                $vlansByInterface[$iface][$vlan] = true;
+            }
+        };
         foreach (explode("\n", $output) as $line) {
             if (preg_match('/^\h*interface\h+gpon-onu_(\d+\/\d+\/\d+:\d+)\h*$/i', $line, $m)) {
                 $interface = $m[1];
+                $block = 'interface';
+
+                continue;
+            }
+            if (preg_match('/^\h*pon-onu-mng\h+gpon-onu_(\d+\/\d+\/\d+:\d+)\h*$/i', $line, $m)) {
+                $interface = $m[1];
+                $block = 'mng';
 
                 continue;
             }
             if (preg_match('/^\h*(?:!|exit|interface\b|pon-onu-mng\b)/i', $line)) {
                 $interface = null;
+                $block = null;
 
                 continue;
             }
-            if ($interface !== null && preg_match('/^\h*(name|description)\h+(.+?)\h*$/i', $line, $m)) {
+            if ($interface === null) {
+                continue;
+            }
+            if ($block === 'interface' && preg_match('/^\h*(name|description)\h+(.+?)\h*$/i', $line, $m)) {
                 $value = trim($m[2]);
                 if (strlen($value) >= 2 && (($value[0] === '"' && str_ends_with($value, '"')) || ($value[0] === "'" && str_ends_with($value, "'")))) {
                     $value = substr($value, 1, -1);
@@ -296,6 +314,30 @@ class ZteOutputParser
                 }
                 $field = strtolower($m[1]) === 'name' ? 'device_name' : 'device_description';
                 $labels[$interface][$field] = mb_substr($value, 0, $field === 'device_name' ? 255 : 4096);
+                continue;
+            }
+            if ($block === 'interface' && preg_match('/^\h*service-port\h+\d+\b(.+)$/i', $line, $m)) {
+                if (preg_match_all('/\b(?:s?vlan|user-vlan)\h+(\d{1,4})\b/i', $m[1], $vm)) {
+                    foreach ($vm[1] as $vid) {
+                        $addVlan($interface, (int) $vid);
+                    }
+                }
+                continue;
+            }
+            if ($block === 'interface' && preg_match('/^\h*switchport\h+vlan\h+(\d{1,4})\b/i', $line, $m)) {
+                $addVlan($interface, (int) $m[1]);
+                continue;
+            }
+            if ($block === 'mng' && preg_match('/^\h*(?:service\h+\S+|vlan\h+port\h+\S+)\b.*\bvlan\h+(\d{1,4})\b/i', $line, $m)) {
+                $addVlan($interface, (int) $m[1]);
+            }
+        }
+        foreach ($vlansByInterface as $iface => $map) {
+            $list = array_keys($map);
+            sort($list);
+            if ($list) {
+                $labels[$iface]['vlan_ids'] = $list;
+                $labels[$iface]['vlan_id'] = $list[0];
             }
         }
 

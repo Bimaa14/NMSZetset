@@ -149,7 +149,7 @@ class RealOltOperations
                     }
                     if ($scope === 'inventory') unset($values['rx_power'], $values['olt_rx_power']);
                     if ($yotc && !$sampleOptics) unset($values['rx_power'], $values['olt_rx_power']);
-                    if ($scope === 'names') $values = array_intersect_key($values, array_flip(['device_name','device_description']));
+                    if ($scope === 'names') $values = array_intersect_key($values, array_flip(['device_name','device_description','vlan_id','vlan_ids']));
                     if ($scope === 'optics') $values = array_intersect_key($values, array_flip(['rx_power','olt_rx_power']));
                     if (in_array($scope,['full','inventory'],true)) {
                         $values['state_observed_at'] = $stamp;

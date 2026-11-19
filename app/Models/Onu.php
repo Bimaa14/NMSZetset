@@ -11,7 +11,7 @@ class Onu extends Model
     public function scopeCurrent($query) { return $query->where('onus.is_present', true)->whereHas('olt', fn ($olt) => $olt->whereColumn('olts.connection_mode', 'onus.observation_source')); }
     protected function casts(): array
     {
-        return ['download_bps'=>'float','upload_bps'=>'float','traffic_observed_at'=>'datetime','state_observed_at'=>'datetime', 'optical_observed_at'=>'datetime', 'last_offline_at'=>'datetime', 'rx_power' => 'float', 'olt_rx_power' => 'float', 'latitude' => 'float', 'longitude' => 'float', 'reboot_requested_at' => 'datetime', 'reboot_complete_at' => 'datetime', 'last_online_at' => 'datetime'];
+        return ['vlan_ids'=>'array','download_bps'=>'float','upload_bps'=>'float','traffic_observed_at'=>'datetime','state_observed_at'=>'datetime', 'optical_observed_at'=>'datetime', 'last_offline_at'=>'datetime', 'rx_power' => 'float', 'olt_rx_power' => 'float', 'latitude' => 'float', 'longitude' => 'float', 'reboot_requested_at' => 'datetime', 'reboot_complete_at' => 'datetime', 'last_online_at' => 'datetime'];
     }
     public function olt() { return $this->belongsTo(Olt::class); }
     public function port() { return $this->belongsTo(OltPort::class, 'olt_port_id'); }

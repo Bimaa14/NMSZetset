@@ -55,6 +55,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/power-monitors/{id}', [\App\Http\Controllers\PowerMonitorController::class, 'update'])->middleware('throttle:30,1');
     Route::delete('/power-monitors/{id}', [\App\Http\Controllers\PowerMonitorController::class, 'destroy'])->middleware('throttle:30,1');
     Route::post('/power-monitors/{id}/check', [\App\Http\Controllers\PowerMonitorController::class, 'check'])->middleware('throttle:30,1');
+    Route::get('/customer-groups', [\App\Http\Controllers\CustomerGroupController::class, 'index']);
+    Route::post('/customer-groups', [\App\Http\Controllers\CustomerGroupController::class, 'store'])->middleware('throttle:30,1');
+    Route::post('/customer-groups/sync-vlans', [\App\Http\Controllers\CustomerGroupController::class, 'syncVlans'])->middleware('throttle:10,1');
+    Route::put('/customer-groups/{id}', [\App\Http\Controllers\CustomerGroupController::class, 'update'])->middleware('throttle:30,1');
+    Route::delete('/customer-groups/{id}', [\App\Http\Controllers\CustomerGroupController::class, 'destroy'])->middleware('throttle:30,1');
     Route::view('/api/docs','api-docs');
     Route::get('/dashboard/activity', [DashboardController::class, 'activity'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
     Route::get('/dashboard/data', [DashboardController::class, 'data'])->middleware(\App\Http\Middleware\ReleasePollingSession::class);
