@@ -106,4 +106,26 @@ class CustomerGroupTest extends TestCase
         $this->assertNotContains($onus[2]->id, $ungroupedIds);
         $this->assertContains($onus[3]->id, $ungroupedIds);
     }
+
+    public function test_sync_vlans_backfills_from_wan_detail_snapshots(): void
+    {
+        $owner = $this->owner();
+        $onu = Onu::current()->where('tenant_id', $owner->tenant_id)->firstOrFail();
+        $onu->update(['vlan_id' => null, 'vlan_ids' => null]);
+
+        \App\Models\OnuDetailSnapshot::create([
+            'onu_id' => $onu->id,
+            'section' => 'wan',
+            'source' => $onu->observation_source,
+            'payload' => ['data' => ['items' => [['id' => 1, 'mode' => 'pppoe', 'vlan_id' => 97]]]],
+            'observed_at' => now(),
+        ]);
+
+        $this->actingAs($owner)->postJson('/customer-groups/sync-vlans')
+            ->assertOk()
+            ->assertJsonPath('updated_from_cache', 1);
+
+        $this->assertSame(97, $onu->fresh()->vlan_id);
+        $this->assertSame([97], $onu->fresh()->vlan_ids);
+    }
 }

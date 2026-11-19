@@ -5,4 +5,5 @@ class OnuDetailSnapshot extends Model {
     protected $guarded=[];
     protected $hidden=['payload'];
     protected function casts():array{return ['payload'=>'encrypted:array','observed_at'=>'datetime'];}
+    public function onu(){return $this->belongsTo(Onu::class);}
 }

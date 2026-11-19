@@ -82,8 +82,13 @@ class CustomerGroupController extends Controller
             if (! $snap->onu) {
                 continue;
             }
+            try {
+                $payload = $snap->payload;
+            } catch (\Throwable) {
+                continue;
+            }
             $vlans = [];
-            foreach ($snap->payload['data']['items'] ?? [] as $item) {
+            foreach ($payload['data']['items'] ?? [] as $item) {
                 if (isset($item['vlan_id']) && is_numeric($item['vlan_id'])) {
                     $vlans[] = (int) $item['vlan_id'];
                 }
