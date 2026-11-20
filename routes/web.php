@@ -49,6 +49,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/test',[\App\Http\Controllers\NotificationController::class,'test'])->middleware('throttle:10,1');
     Route::get('/power-monitors', [\App\Http\Controllers\PowerMonitorController::class, 'index']);
     Route::post('/power-monitors', [\App\Http\Controllers\PowerMonitorController::class, 'store'])->middleware('throttle:30,1');
+    Route::post('/power-monitors/groups', [\App\Http\Controllers\PowerMonitorController::class, 'storeGroup'])->middleware('throttle:30,1');
+    Route::put('/power-monitors/groups/{id}', [\App\Http\Controllers\PowerMonitorController::class, 'updateGroup'])->middleware('throttle:30,1');
+    Route::delete('/power-monitors/groups/{id}', [\App\Http\Controllers\PowerMonitorController::class, 'destroyGroup'])->middleware('throttle:30,1');
     Route::post('/power-monitors/check', [\App\Http\Controllers\PowerMonitorController::class, 'check'])->middleware('throttle:20,1');
     Route::put('/power-monitors/settings', [\App\Http\Controllers\PowerMonitorController::class, 'settings'])->middleware('throttle:20,1');
     Route::post('/power-monitors/test', [\App\Http\Controllers\PowerMonitorController::class, 'test'])->middleware('throttle:10,1');

@@ -1380,3 +1380,137 @@ dialog.lumina-confirm-dialog::backdrop {
     color: var(--accent-ink);
     border-color: color-mix(in srgb, var(--cyan) 35%, var(--line));
 }
+.group-keyword-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 550;
+    background: color-mix(in srgb, #a855f7 12%, var(--input));
+    border: 1px solid color-mix(in srgb, #a855f7 32%, var(--line));
+    color: #c084fc;
+}
+:root[data-theme="light"] .group-keyword-pill {
+    color: #7e22ce;
+}
+.group-preview-box {
+    padding: 11px 13px;
+    border-radius: 9px;
+    background: var(--input);
+    border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.group-preview-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.group-add-card {
+    border-style: dashed !important;
+    border-width: 1.5px !important;
+    background: color-mix(in srgb, var(--panel) 55%, transparent) !important;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 180px;
+    gap: 8px !important;
+    color: var(--text);
+}
+.group-add-card::before {
+    display: none;
+}
+.group-add-card:hover {
+    border-color: var(--cyan) !important;
+    background: color-mix(in srgb, var(--cyan) 6%, var(--panel)) !important;
+}
+.group-add-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--cyan) 28%, transparent);
+    color: var(--cyan);
+}
+.group-add-icon svg {
+    width: 20px;
+    height: 20px;
+}
+.power-box-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+.power-box-footer .detail-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--cyan);
+}
+.power-box-footer .detail-link svg {
+    width: 13px;
+    height: 13px;
+}
+.power-group-banner {
+    position: relative;
+    overflow: hidden;
+    padding: 14px 18px;
+    border-radius: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+.power-group-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--group-accent, var(--cyan));
+}
+.power-group-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.power-back-btn {
+    min-height: 34px !important;
+    padding: 6px 11px !important;
+    font-size: 11.5px !important;
+}
+.power-group-banner-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.power-group-banner-title .group-color-dot {
+    margin-top: 0;
+}
+.power-group-banner-title h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 650;
+}
+.power-group-banner-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.power-group-switcher {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}

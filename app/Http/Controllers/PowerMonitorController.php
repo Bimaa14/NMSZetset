@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{NotificationLog, NotificationSetting, Onu, PowerMonitor};
+use App\Models\{NotificationLog, NotificationSetting, Onu, PowerMonitor, PowerMonitorGroup};
 use App\Services\{AuditRecorder, PowerMonitorService};
 use Illuminate\Http\Request;
 use Illuminate\Validation\{Rule, ValidationException};
@@ -15,6 +15,68 @@ class PowerMonitorController extends Controller
         abort_unless($request->user()->allows('read'), 403);
 
         return response()->json($this->payload($request->user()->tenant_id));
+    }
+
+    public function storeGroup(Request $request, AuditRecorder $audit)
+    {
+        abort_unless($request->user()->allows('operate'), 403);
+        $tenantId = $request->user()->tenant_id;
+        $data = $this->validateGroup($request, $tenantId);
+
+        $nextOrder = ((int) PowerMonitorGroup::where('tenant_id', $tenantId)->max('sort_order')) + 1;
+        $group = PowerMonitorGroup::create($data + [
+            'tenant_id' => $tenantId,
+            'sort_order' => $nextOrder,
+        ]);
+
+        $audit->record($request, 'power_group.create', $group->name);
+
+        return response()->json([
+            'message' => "Kategori monitoring '{$group->name}' berhasil ditambahkan.",
+            'group' => $group,
+            ...$this->payload($tenantId),
+        ], 201);
+    }
+
+    public function updateGroup(Request $request, int $id, AuditRecorder $audit)
+    {
+        abort_unless($request->user()->allows('operate'), 403);
+        $tenantId = $request->user()->tenant_id;
+        $group = PowerMonitorGroup::where('tenant_id', $tenantId)->findOrFail($id);
+        $oldName = $group->name;
+        $data = $this->validateGroup($request, $tenantId, $group);
+
+        $group->update($data);
+        if ($oldName !== $group->name) {
+            PowerMonitor::where('tenant_id', $tenantId)
+                ->where('power_monitor_group_id', $group->id)
+                ->where('group_name', $oldName)
+                ->update(['group_name' => $group->name]);
+        }
+
+        $audit->record($request, 'power_group.update', $group->name);
+
+        return response()->json([
+            'message' => "Kategori monitoring '{$group->name}' diperbarui.",
+            'group' => $group->fresh(),
+            ...$this->payload($tenantId),
+        ]);
+    }
+
+    public function destroyGroup(Request $request, int $id, AuditRecorder $audit)
+    {
+        abort_unless($request->user()->allows('operate'), 403);
+        $tenantId = $request->user()->tenant_id;
+        $group = PowerMonitorGroup::where('tenant_id', $tenantId)->findOrFail($id);
+        $name = $group->name;
+        $group->delete();
+
+        $audit->record($request, 'power_group.delete', $name);
+
+        return response()->json([
+            'message' => "Kategori monitoring '{$name}' dihapus. Target di dalamnya tetap tersimpan di Tanpa Kategori.",
+            ...$this->payload($tenantId),
+        ]);
     }
 
     public function store(Request $request, PowerMonitorService $service, AuditRecorder $audit)
@@ -46,7 +108,7 @@ class PowerMonitorController extends Controller
         $audit->record($request, 'power.create', $monitor->name);
 
         return response()->json([
-            'message' => "Sensor listrik '{$monitor->name}' berhasil ditambahkan.",
+            'message' => "Target monitoring '{$monitor->name}' berhasil ditambahkan.",
             ...$this->payload($tenantId),
         ], 201);
     }
@@ -85,7 +147,7 @@ class PowerMonitorController extends Controller
         $audit->record($request, 'power.update', $monitor->name);
 
         return response()->json([
-            'message' => "Sensor listrik '{$monitor->name}' berhasil diperbarui.",
+            'message' => "Target monitoring '{$monitor->name}' berhasil diperbarui.",
             ...$this->payload($tenantId),
         ]);
     }
@@ -101,7 +163,7 @@ class PowerMonitorController extends Controller
         $audit->record($request, 'power.delete', $name);
 
         return response()->json([
-            'message' => "Sensor listrik '{$name}' berhasil dihapus.",
+            'message' => "Target monitoring '{$name}' berhasil dihapus.",
             ...$this->payload($tenantId),
         ]);
     }
@@ -162,10 +224,10 @@ class PowerMonitorController extends Controller
             'power_cooldown_minutes' => (int) $data['power_cooldown_minutes'],
         ]);
 
-        $audit->record($request, 'power.settings.update', 'Alert Monitoring Listrik');
+        $audit->record($request, 'power.settings.update', 'Alert Monitoring ONU');
 
         return response()->json([
-            'message' => 'Pengaturan grup alert Monitoring Listrik berhasil disimpan.',
+            'message' => 'Pengaturan grup alert Monitoring ONU berhasil disimpan.',
             ...$this->payload($tenantId),
         ]);
     }
@@ -194,32 +256,48 @@ class PowerMonitorController extends Controller
         try {
             $results = $service->sendPowerTest($setting);
             $failed = array_values(array_filter($results, fn ($r) => ($r['status'] ?? '') === 'failed'));
-            $audit->record($request, 'power.notification.test', 'Tes Alert Listrik');
+            $audit->record($request, 'power.notification.test', 'Tes Alert Monitoring ONU');
 
             if ($failed) {
                 $firstError = $failed[0]['error'] ?? 'Gagal menghubungi gateway.';
                 return response()->json([
-                    'message' => "Pengiriman tes alert listrik gagal: {$firstError}",
+                    'message' => "Pengiriman tes alert gagal: {$firstError}",
                     ...$this->payload($tenantId),
                 ], 422);
             }
 
             return response()->json([
-                'message' => 'Pesan tes alert Monitoring Listrik berhasil dikirim ke '.count($results).' tujuan.',
+                'message' => 'Pesan tes alert Monitoring ONU berhasil dikirim ke '.count($results).' tujuan.',
                 ...$this->payload($tenantId),
             ]);
         } catch (Throwable $e) {
             return response()->json([
-                'message' => 'Gagal mengirim tes alert listrik: '.$e->getMessage(),
+                'message' => 'Gagal mengirim tes alert: '.$e->getMessage(),
                 ...$this->payload($tenantId),
             ], 422);
         }
+    }
+
+    private function validateGroup(Request $request, int $tenantId, ?PowerMonitorGroup $group = null): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100', Rule::unique('power_monitor_groups')->where('tenant_id', $tenantId)->ignore($group?->id)],
+            'color_hex' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'description' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        return [
+            'name' => trim($data['name']),
+            'color_hex' => $data['color_hex'] ?: '#10b981',
+            'description' => trim((string) ($data['description'] ?? '')) ?: null,
+        ];
     }
 
     private function validateMonitor(Request $request, int $tenantId): array
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'power_monitor_group_id' => ['nullable', 'integer'],
             'group_name' => ['nullable', 'string', 'max:120'],
             'location' => ['nullable', 'string', 'max:160'],
             'monitor_type' => ['required', 'string', Rule::in(['ping', 'onu', 'both'])],
@@ -229,6 +307,18 @@ class PowerMonitorController extends Controller
             'whatsapp_recipients_override' => ['nullable', 'string', 'max:500'],
             'is_enabled' => ['required', 'boolean'],
         ]);
+
+        $selectedGroup = null;
+        if (! empty($data['power_monitor_group_id'])) {
+            $selectedGroup = PowerMonitorGroup::where('tenant_id', $tenantId)->find($data['power_monitor_group_id']);
+            if (! $selectedGroup) {
+                throw ValidationException::withMessages([
+                    'power_monitor_group_id' => 'Kategori monitoring tidak ditemukan.',
+                ]);
+            }
+        } elseif (! $request->has('power_monitor_group_id')) {
+            $selectedGroup = PowerMonitorGroup::ensureDefaultForTenant($tenantId);
+        }
 
         if (in_array($data['monitor_type'], ['ping', 'both'], true) && empty($data['ip_address'])) {
             throw ValidationException::withMessages([
@@ -263,9 +353,15 @@ class PowerMonitorController extends Controller
             $onuId = null;
         }
 
+        $groupName = trim((string) ($data['group_name'] ?? ''));
+        if ($groupName === '') {
+            $groupName = $selectedGroup?->name ?: 'Listrik';
+        }
+
         return [
+            'power_monitor_group_id' => $selectedGroup?->id,
             'name' => trim($data['name']),
-            'group_name' => trim((string) ($data['group_name'] ?? '')) ?: 'MONITORING-LISTRIK',
+            'group_name' => $groupName,
             'location' => trim((string) ($data['location'] ?? '')) ?: null,
             'monitor_type' => $data['monitor_type'],
             'ip_address' => in_array($data['monitor_type'], ['ping', 'both'], true) ? trim((string) $data['ip_address']) : null,
@@ -277,8 +373,16 @@ class PowerMonitorController extends Controller
 
     private function payload(int $tenantId): array
     {
+        PowerMonitorGroup::ensureDefaultForTenant($tenantId);
+
+        $monitorGroups = PowerMonitorGroup::where('tenant_id', $tenantId)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
         $monitors = PowerMonitor::where('tenant_id', $tenantId)
             ->with([
+                'group:id,name,color_hex',
                 'onu' => fn ($q) => $q->select('id', 'olt_id', 'olt_port_id', 'onu_index', 'name', 'sn', 'phase_state')
                     ->with(['port:id,interface_name', 'olt:id,name']),
             ])
@@ -287,6 +391,8 @@ class PowerMonitorController extends Controller
             ->get()
             ->map(function (PowerMonitor $monitor) {
                 $row = $monitor->toArray();
+                $row['monitor_group_name'] = $monitor->group?->name;
+                $row['monitor_group_color'] = $monitor->group?->color_hex;
                 if ($monitor->onu) {
                     $ifName = $monitor->onu->port
                         ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $monitor->onu->port->interface_name).':'.$monitor->onu->onu_index
@@ -299,6 +405,31 @@ class PowerMonitorController extends Controller
             })
             ->values();
 
+        $groupCards = $monitorGroups->map(function (PowerMonitorGroup $g) use ($monitors) {
+            $items = $monitors->where('power_monitor_group_id', $g->id);
+            $active = $items->where('is_enabled', true);
+            $total = $items->count();
+            $up = $active->where('status', 'up')->count();
+            $warning = $active->where('status', 'warning')->count();
+            $down = $active->where('status', 'down')->count();
+            $unknown = $active->where('status', 'unknown')->count();
+
+            return [
+                'id' => $g->id,
+                'name' => $g->name,
+                'color_hex' => $g->color_hex,
+                'description' => $g->description,
+                'total' => $total,
+                'up' => $up,
+                'warning' => $warning,
+                'down' => $down,
+                'unknown' => $unknown,
+                'percent' => $total > 0 ? (int) round(($up / $total) * 100) : 0,
+            ];
+        })->values();
+
+        $ungroupedCount = $monitors->whereNull('power_monitor_group_id')->count();
+
         $enabled = $monitors->where('is_enabled', true);
         $latencies = $monitors->pluck('last_latency_ms')->filter(fn ($v) => $v !== null);
 
@@ -310,6 +441,8 @@ class PowerMonitorController extends Controller
 
         return [
             'monitors' => $monitors,
+            'monitor_groups' => $groupCards,
+            'ungrouped_count' => $ungroupedCount,
             'groups' => $monitors->pluck('group_name')->filter()->unique()->values(),
             'summary' => [
                 'total' => $monitors->count(),

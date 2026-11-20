@@ -24,7 +24,7 @@ class CustomerGroupController extends Controller
         $data = $this->validateInput($request, $tenantId);
 
         $group = CustomerGroup::create($data + ['tenant_id' => $tenantId]);
-        $audit->record($request, 'customer_group.create', $group->name.' (VLAN '.implode(', ', $group->vlan_ids).')');
+        $audit->record($request, 'customer_group.create', $this->auditSummary($group));
 
         return response()->json($this->payload($tenantId) + [
             'message' => 'Grup pelanggan '.$group->name.' berhasil ditambahkan.',
@@ -40,7 +40,7 @@ class CustomerGroupController extends Controller
         $data = $this->validateInput($request, $tenantId, $group);
 
         $group->update($data);
-        $audit->record($request, 'customer_group.update', $group->name.' (VLAN '.implode(', ', $group->vlan_ids).')');
+        $audit->record($request, 'customer_group.update', $this->auditSummary($group));
 
         return response()->json($this->payload($tenantId) + [
             'message' => 'Grup pelanggan '.$group->name.' diperbarui.',
@@ -172,27 +172,55 @@ class CustomerGroupController extends Controller
         ]);
     }
 
+    private function auditSummary(CustomerGroup $group): string
+    {
+        $parts = [];
+        $vlans = CustomerGroup::normalizeVlans($group->vlan_ids ?? []);
+        $keywords = CustomerGroup::normalizeKeywords($group->name_keywords ?? []);
+        if ($vlans) {
+            $parts[] = 'VLAN '.implode(', ', $vlans);
+        }
+        if ($keywords) {
+            $parts[] = 'Nama: '.implode(', ', $keywords);
+        }
+
+        return $group->name.($parts ? ' ('.implode(' · ', $parts).')' : '');
+    }
+
     private function validateInput(Request $request, int $tenantId, ?CustomerGroup $group = null): array
     {
         $rawVlans = $request->input('vlan_ids', $request->input('vlans'));
-        $normalized = CustomerGroup::normalizeVlans($rawVlans);
-        $request->merge(['vlan_ids' => $normalized]);
+        $rawKeywords = $request->input('name_keywords', $request->input('keywords'));
+        $normalizedVlans = CustomerGroup::normalizeVlans($rawVlans);
+        $normalizedKeywords = CustomerGroup::normalizeKeywords($rawKeywords);
+
+        $request->merge([
+            'vlan_ids' => $normalizedVlans,
+            'name_keywords' => $normalizedKeywords,
+        ]);
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('customer_groups')->where('tenant_id', $tenantId)->ignore($group?->id)],
             'color_hex' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'vlan_ids' => ['required', 'array', 'min:1', 'max:50'],
+            'vlan_ids' => ['nullable', 'array', 'max:50'],
             'vlan_ids.*' => ['integer', 'min:1', 'max:4094'],
+            'name_keywords' => ['nullable', 'array', 'max:30'],
+            'name_keywords.*' => ['string', 'max:60'],
             'description' => ['nullable', 'string', 'max:255'],
-        ], [
-            'vlan_ids.required' => 'Masukkan minimal satu nomor VLAN (1–4094), contoh: 97 atau 95, 99.',
-            'vlan_ids.min' => 'Masukkan minimal satu nomor VLAN (1–4094).',
         ]);
+
+        if (! $normalizedVlans && ! $normalizedKeywords) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'vlan_ids' => 'Isi minimal satu nomor VLAN (1–4094) atau satu kata kunci nama ONU.',
+                'name_keywords' => 'Isi minimal satu nomor VLAN atau satu kata kunci nama ONU.',
+            ]);
+        }
 
         return [
             'name' => trim($data['name']),
             'color_hex' => $data['color_hex'] ?: '#38bdf8',
-            'vlan_ids' => CustomerGroup::normalizeVlans($data['vlan_ids']),
+            'vlan_ids' => $normalizedVlans,
+            'name_keywords' => $normalizedKeywords,
             'description' => trim((string) ($data['description'] ?? '')) ?: null,
         ];
     }
@@ -203,7 +231,7 @@ class CustomerGroupController extends Controller
         $threshold = (float) config('nms.bad_rx_threshold', -27);
         $onus = Onu::current()
             ->where('tenant_id', $tenantId)
-            ->get(['id', 'phase_state', 'rx_power', 'vlan_id', 'vlan_ids']);
+            ->get(['id', 'name', 'description', 'phase_state', 'rx_power', 'vlan_id', 'vlan_ids']);
 
         $vlanCounts = [];
         $withVlan = 0;
@@ -216,6 +244,7 @@ class CustomerGroupController extends Controller
                 'name' => $g->name,
                 'color_hex' => $g->color_hex,
                 'vlan_ids' => CustomerGroup::normalizeVlans($g->vlan_ids ?? []),
+                'name_keywords' => CustomerGroup::normalizeKeywords($g->name_keywords ?? []),
                 'description' => $g->description,
                 'total_onus' => 0,
                 'online_onus' => 0,
@@ -239,8 +268,7 @@ class CustomerGroupController extends Controller
             $isWeak = $onu->rx_power !== null && (float) $onu->rx_power <= $threshold;
 
             foreach ($groups as $g) {
-                $gVlans = $groupStats[$g->id]['vlan_ids'];
-                if ($gVlans && $onuVlans && count(array_intersect($gVlans, $onuVlans)) > 0) {
+                if ($g->matchesOnu($onu)) {
                     $groupStats[$g->id]['total_onus']++;
                     if ($isOnline) {
                         $groupStats[$g->id]['online_onus']++;

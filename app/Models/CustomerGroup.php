@@ -13,6 +13,7 @@ class CustomerGroup extends Model
     {
         return [
             'vlan_ids' => 'array',
+            'name_keywords' => 'array',
         ];
     }
 
@@ -46,6 +47,37 @@ class CustomerGroup extends Model
     }
 
     /**
+     * Normalize comma/semicolon/newline-separated ONU name/description keywords.
+     *
+     * @param array<int,mixed>|string|null $raw
+     * @return list<string>
+     */
+    public static function normalizeKeywords(array|string|null $raw): array
+    {
+        $items = is_array($raw) ? $raw : preg_split('/[,;\r\n]+/', (string) $raw, -1, PREG_SPLIT_NO_EMPTY);
+        $seen = [];
+        $keywords = [];
+        foreach ($items ?: [] as $item) {
+            $kw = trim((string) $item);
+            if ($kw === '') {
+                continue;
+            }
+            $kw = mb_substr($kw, 0, 60);
+            $key = mb_strtolower($kw);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $keywords[] = $kw;
+            if (count($keywords) >= 30) {
+                break;
+            }
+        }
+
+        return $keywords;
+    }
+
+    /**
      * Collect all VLAN IDs belonging to an ONU (combining scalar vlan_id and json vlan_ids).
      *
      * @return list<int>
@@ -63,11 +95,23 @@ class CustomerGroup extends Model
     public function matchesOnu(Onu $onu): bool
     {
         $groupVlans = self::normalizeVlans($this->vlan_ids ?? []);
-        if (! $groupVlans) {
-            return false;
+        if ($groupVlans && count(array_intersect($groupVlans, self::onuVlans($onu))) > 0) {
+            return true;
         }
 
-        return count(array_intersect($groupVlans, self::onuVlans($onu))) > 0;
+        $keywords = self::normalizeKeywords($this->name_keywords ?? []);
+        if ($keywords) {
+            $haystackName = (string) ($onu->name ?? '');
+            $haystackDesc = (string) ($onu->description ?? '');
+            foreach ($keywords as $kw) {
+                if (($haystackName !== '' && mb_stripos($haystackName, $kw) !== false)
+                    || ($haystackDesc !== '' && mb_stripos($haystackDesc, $kw) !== false)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -93,25 +137,93 @@ class CustomerGroup extends Model
     }
 
     /**
-     * Filter an Onu query builder to rows matching NONE of the tenant's grouped VLANs.
-     *
-     * @param list<int> $allGroupedVlans
+     * Filter an Onu query builder to rows matching a CustomerGroup's VLANs and/or ONU name keywords.
      */
-    public static function applyUngroupedFilter(Builder $query, array $allGroupedVlans): void
+    public static function applyGroupFilter(Builder $query, ?self $group): void
     {
-        $allGroupedVlans = self::normalizeVlans($allGroupedVlans);
-        if (! $allGroupedVlans) {
+        if (! $group) {
+            $query->whereRaw('1 = 0');
+
             return;
         }
 
-        $query->where(function (Builder $w) use ($allGroupedVlans) {
-            $w->whereNull('onus.vlan_id')->orWhereNotIn('onus.vlan_id', $allGroupedVlans);
-        });
+        $vlanIds = self::normalizeVlans($group->vlan_ids ?? []);
+        $keywords = self::normalizeKeywords($group->name_keywords ?? []);
 
-        foreach ($allGroupedVlans as $vid) {
-            $query->where(function (Builder $w) use ($vid) {
-                $w->whereNull('onus.vlan_ids')->orWhereJsonDoesntContain('onus.vlan_ids', $vid);
-            });
+        if (! $vlanIds && ! $keywords) {
+            $query->whereRaw('1 = 0');
+
+            return;
         }
+
+        $query->where(function (Builder $w) use ($vlanIds, $keywords) {
+            $first = true;
+
+            if ($vlanIds) {
+                $w->whereIn('onus.vlan_id', $vlanIds);
+                foreach ($vlanIds as $vid) {
+                    $w->orWhereJsonContains('onus.vlan_ids', $vid);
+                }
+                $first = false;
+            }
+
+            foreach ($keywords as $kw) {
+                $pattern = '%'.self::escapeLike(mb_strtolower($kw)).'%';
+                if ($first) {
+                    $w->whereRaw("LOWER(COALESCE(onus.name, '')) LIKE ? ESCAPE '!'", [$pattern])
+                        ->orWhereRaw("LOWER(COALESCE(onus.description, '')) LIKE ? ESCAPE '!'", [$pattern]);
+                    $first = false;
+                } else {
+                    $w->orWhereRaw("LOWER(COALESCE(onus.name, '')) LIKE ? ESCAPE '!'", [$pattern])
+                        ->orWhereRaw("LOWER(COALESCE(onus.description, '')) LIKE ? ESCAPE '!'", [$pattern]);
+                }
+            }
+        });
+    }
+
+    /**
+     * Filter an Onu query builder to rows matching NONE of the tenant's groups (neither VLAN nor name keywords).
+     *
+     * @param iterable<self> $groups
+     */
+    public static function applyUngroupedFilter(Builder $query, iterable $groups): void
+    {
+        $allVlans = [];
+        $allKeywords = [];
+
+        foreach ($groups as $g) {
+            if ($g instanceof self) {
+                $allVlans = array_merge($allVlans, self::normalizeVlans($g->vlan_ids ?? []));
+                $allKeywords = array_merge($allKeywords, self::normalizeKeywords($g->name_keywords ?? []));
+            } elseif (is_numeric($g)) {
+                $allVlans[] = (int) $g;
+            }
+        }
+
+        $allVlans = self::normalizeVlans($allVlans);
+        $allKeywords = self::normalizeKeywords($allKeywords);
+
+        if ($allVlans) {
+            $query->where(function (Builder $w) use ($allVlans) {
+                $w->whereNull('onus.vlan_id')->orWhereNotIn('onus.vlan_id', $allVlans);
+            });
+
+            foreach ($allVlans as $vid) {
+                $query->where(function (Builder $w) use ($vid) {
+                    $w->whereNull('onus.vlan_ids')->orWhereJsonDoesntContain('onus.vlan_ids', $vid);
+                });
+            }
+        }
+
+        foreach ($allKeywords as $kw) {
+            $pattern = '%'.self::escapeLike(mb_strtolower($kw)).'%';
+            $query->whereRaw("LOWER(COALESCE(onus.name, '')) NOT LIKE ? ESCAPE '!'", [$pattern])
+                ->whereRaw("LOWER(COALESCE(onus.description, '')) NOT LIKE ? ESCAPE '!'", [$pattern]);
+        }
+    }
+
+    private static function escapeLike(string $value): string
+    {
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
     }
 }

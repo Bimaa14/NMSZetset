@@ -35,11 +35,10 @@ class OnuDirectory
         }
         if (! empty($d['customer_group_id'])) {
             if ($d['customer_group_id'] === 'ungrouped') {
-                $allVlans = $tenantGroups->flatMap(fn ($g) => CustomerGroup::normalizeVlans($g->vlan_ids ?? []))->all();
-                CustomerGroup::applyUngroupedFilter($q, $allVlans);
+                CustomerGroup::applyUngroupedFilter($q, $tenantGroups);
             } elseif (ctype_digit($d['customer_group_id'])) {
                 $group = $tenantGroups->firstWhere('id', (int) $d['customer_group_id']);
-                CustomerGroup::applyVlanFilter($q, $group ? ($group->vlan_ids ?? []) : []);
+                CustomerGroup::applyGroupFilter($q, $group);
             }
         }
         $analysis = app(OpticalAnalysis::class)->forTenant($tenantId);

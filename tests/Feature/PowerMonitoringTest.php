@@ -223,4 +223,62 @@ class PowerMonitoringTest extends TestCase
         $this->assertSame(1, NotificationLog::where('power_monitor_id', $monitor->id)->where('event_type', 'power_down')->where('status', 'sent')->count());
         Http::assertSent(fn ($req) => str_contains($req->url(), 'target=1203637777777%40g.us') && str_contains($req->body(), 'Double Check') && str_contains($req->body(), 'DYING-GASP'));
     }
+
+    public function test_monitoring_onu_category_boxes_crud_and_grouping(): void
+    {
+        $probe = \Mockery::mock(PowerProbeService::class);
+        $probe->shouldReceive('ping')->andReturn(['reachable' => true, 'latency_ms' => 1.8, 'packet_loss' => 0, 'error' => null]);
+        $this->app->instance(PowerProbeService::class, $probe);
+
+        $owner = $this->owner();
+
+        // Default "Listrik" category box exists automatically
+        $initial = $this->actingAs($owner)->getJson('/power-monitors')->assertOk()->json();
+        $listrikGroup = collect($initial['monitor_groups'])->firstWhere('name', 'Listrik');
+        $this->assertNotNull($listrikGroup);
+
+        // Create a second custom category box ("Backbone")
+        $backboneRes = $this->actingAs($owner)->postJson('/power-monitors/groups', [
+            'name' => 'Backbone',
+            'color_hex' => '#38bdf8',
+            'description' => 'Link backbone antar POP',
+        ])->assertCreated();
+        $backboneId = $backboneRes->json('group.id');
+
+        // Add IP targets into Listrik and Backbone
+        $this->actingAs($owner)->postJson('/power-monitors', [
+            'name' => 'PLN POP CIPAKU',
+            'power_monitor_group_id' => $listrikGroup['id'],
+            'monitor_type' => 'ping',
+            'ip_address' => '192.0.2.50',
+            'is_enabled' => true,
+        ])->assertCreated();
+
+        $bbMon = $this->actingAs($owner)->postJson('/power-monitors', [
+            'name' => 'ROUTER POP UTARA',
+            'power_monitor_group_id' => $backboneId,
+            'monitor_type' => 'ping',
+            'ip_address' => '192.0.2.51',
+            'is_enabled' => true,
+        ])->assertCreated()->json();
+
+        $listrikStats = collect($bbMon['monitor_groups'])->firstWhere('id', $listrikGroup['id']);
+        $backboneStats = collect($bbMon['monitor_groups'])->firstWhere('id', $backboneId);
+        $this->assertSame(1, $listrikStats['total']);
+        $this->assertSame(1, $listrikStats['up']);
+        $this->assertSame(1, $backboneStats['total']);
+        $this->assertSame(1, $backboneStats['up']);
+
+        // Update category name
+        $this->actingAs($owner)->putJson('/power-monitors/groups/'.$backboneId, [
+            'name' => 'Backbone Core',
+            'color_hex' => '#10b981',
+            'description' => 'Core link',
+        ])->assertOk();
+
+        // Deleting a category keeps its monitors safe as ungrouped
+        $afterDelete = $this->actingAs($owner)->deleteJson('/power-monitors/groups/'.$backboneId)->assertOk()->json();
+        $this->assertSame(1, $afterDelete['ungrouped_count']);
+        $this->assertSame(2, $afterDelete['summary']['total']);
+    }
 }

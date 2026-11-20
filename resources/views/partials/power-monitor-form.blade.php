@@ -1,13 +1,19 @@
 <template x-if="modal==='power-form' && powerForm">
     <form class="form-stack" @submit.prevent="savePowerMonitor()">
-        <p class="muted small" style="margin-top:-6px">Pantau ketersediaan listrik PLN via Ping IP, status ONU OLT, atau mode ganda (Ping RTO otomatis cek live status ONU ke OLT sebelum mengirim report WA).</p>
+        <p class="muted small" style="margin-top:-6px">Pantau target IP, status ONU OLT, atau mode ganda (Ping RTO otomatis cek live status ONU ke OLT sebelum mengirim notifikasi WA/Telegram).</p>
         <div class="form-grid">
-            <label>Nama Perangkat / Lokasi
-                <input x-model="powerForm.name" required maxlength="120" placeholder="MONITORING LISTRIK CIPAKU">
+            <label>Nama Target / Lokasi
+                <input x-model="powerForm.name" required maxlength="120" placeholder="Contoh: LISTRIK CIPAKU / POP-01">
                 <small class="red-text" x-show="fieldError('name')" x-text="fieldError('name')"></small>
             </label>
-            <label>Device Group
-                <input x-model="powerForm.group_name" maxlength="120" placeholder="MONITORING-LISTRIK-ONU-BANDUNG">
+            <label>Kategori Monitoring
+                <select x-model="powerForm.power_monitor_group_id">
+                    <template x-for="g in powerData.monitor_groups || []" :key="g.id">
+                        <option :value="String(g.id)" x-text="g.name"></option>
+                    </template>
+                    <option value="">— Tanpa Kategori —</option>
+                </select>
+                <small class="red-text" x-show="fieldError('power_monitor_group_id')" x-text="fieldError('power_monitor_group_id')"></small>
             </label>
             <label>Area / Keterangan Lokasi (opsional)
                 <input x-model="powerForm.location" maxlength="160" placeholder="OLT / POP / Lokasi Gardu">
@@ -36,21 +42,21 @@
             </label>
             <label x-show="powerForm.monitor_type !== 'ping'" :class="{'full-width': powerForm.monitor_type === 'onu'}">ONU Terkait
                 <select x-model="powerForm.onu_id" :required="powerForm.monitor_type !== 'ping'">
-                    <option value="">— Pilih ONU Sensor —</option>
+                    <option value="">— Pilih ONU Target —</option>
                     <template x-for="onu in powerOnuOptions" :key="onu.id">
                         <option :value="String(onu.id)" x-text="oltName(onu.olt_id) + ' · ' + (onu.name && onu.name!==onu.sn ? onu.name + ' · ' : '') + onu.sn + ' (' + onu.interface + ')'"></option>
                     </template>
                 </select>
                 <small class="red-text" x-show="fieldError('onu_id')" x-text="fieldError('onu_id')"></small>
             </label>
-            <label :class="{'full-width': powerForm.monitor_type !== 'ping'}">Override Grup WA Khusus Sensor Ini (opsional)
-                <input x-model="powerForm.whatsapp_recipients_override" maxlength="500" placeholder="Kosongkan untuk mengikuti grup WA Listrik global">
+            <label :class="{'full-width': powerForm.monitor_type !== 'ping'}">Override Grup WA Khusus Target Ini (opsional)
+                <input x-model="powerForm.whatsapp_recipients_override" maxlength="500" placeholder="Kosongkan untuk mengikuti grup WA Monitoring global">
             </label>
         </div>
         <div class="power-editor-footer">
             <label class="checkbox-row">
                 <input type="checkbox" x-model="powerForm.is_enabled">
-                <span>Aktifkan pengecekan otomatis &amp; alert padam/menyala</span>
+                <span>Aktifkan pengecekan otomatis &amp; alert gangguan/pulih</span>
             </label>
             <div class="modal-actions" style="margin-top:0">
                 <button type="button" class="btn secondary" @click="closeModal()" :disabled="busy">Batal</button>

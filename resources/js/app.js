@@ -117,16 +117,37 @@ Alpine.data('dashboard', () => Object.defineProperties({
         if (this.sort === 'onu') result.sort((a, b) => b.onus_count - a.onus_count);
         return result;
     },
+    get scopedPowerMonitors() {
+        const list = this.powerData?.monitors || [];
+        if (!this.selectedPowerGroup || this.selectedPowerGroup === 'all') return list;
+        if (this.selectedPowerGroup === 'ungrouped') return list.filter(m => !m.power_monitor_group_id);
+        return list.filter(m => String(m.power_monitor_group_id || '') === String(this.selectedPowerGroup));
+    },
+    get activePowerSummary() {
+        if (!this.selectedPowerGroup || this.selectedPowerGroup === 'all') {
+            return this.powerData?.summary || { total: 0, up: 0, warning: 0, down: 0, unknown: 0, avg_latency_ms: null };
+        }
+        const items = this.scopedPowerMonitors;
+        const active = items.filter(m => m.is_enabled);
+        const lats = items.map(m => m.last_latency_ms).filter(v => v != null && Number.isFinite(Number(v))).map(Number);
+        return {
+            total: items.length,
+            up: active.filter(m => m.status === 'up').length,
+            warning: active.filter(m => m.status === 'warning').length,
+            down: active.filter(m => m.status === 'down').length,
+            unknown: active.filter(m => m.status === 'unknown').length,
+            avg_latency_ms: lats.length ? Math.round((lats.reduce((a, b) => a + b, 0) / lats.length) * 100) / 100 : null,
+        };
+    },
     get filteredPowerMonitors() {
         const q = (this.powerFilter?.q || '').trim().toLowerCase();
-        return (this.powerData?.monitors || []).filter(m => {
-            if (this.powerFilter?.group && this.powerFilter.group !== 'all' && m.group_name !== this.powerFilter.group) return false;
+        return this.scopedPowerMonitors.filter(m => {
             if (this.powerFilter?.status && this.powerFilter.status !== 'all' && m.status !== this.powerFilter.status) return false;
             if (!q) return true;
-            return [m.name, m.group_name, m.location, m.ip_address, m.onu_label, m.onu?.sn].some(v => (v || '').toLowerCase().includes(q));
+            return [m.name, m.monitor_group_name, m.group_name, m.location, m.ip_address, m.onu_label, m.onu?.sn].some(v => (v || '').toLowerCase().includes(q));
         });
     },
-    get modalTitle() { if(this.modal==='equipment')return 'Card / Slot semua OLT';if(this.modal==='onus'&&!this.selected)return 'ONU semua OLT';if(this.modal==='ports')return 'Port '+this.ponLabel();if(this.modal==='power-form')return this.powerForm?.id ? 'Edit Sensor Listrik' : 'Tambah Sensor Listrik';if(this.modal==='customer-group-form')return this.customerGroupForm?.id ? 'Edit Grup Pelanggan' : 'Tambah Grup Pelanggan'; return ({ power: 'Monitoring Listrik (PLN / Ping)', profiles: 'Profil layanan', provision: 'Pasang ONU', profile: 'Profil Anda', telegram: 'Notifikasi Telegram & WhatsApp', whatsapp: 'Notifikasi WhatsApp & Telegram', api: 'Open API', tags: 'Tags pelanggan', vpn: 'VPN', balance: 'Saldo', affiliate: 'Affiliate', staff: 'Staff workspace', audit: 'Audit aktivitas', degradation: 'Redaman Memburuk', maps: 'FTTH Maps', backups:'Backup konfigurasi', upgrade: 'Upgrade paket', add: 'Tambah OLT', edit: 'Edit OLT', delete: 'Hapus perangkat OLT', info: 'Informasi OLT', view: 'Detail sistem OLT', onus: 'Daftar ONU', cli: 'Web CLI' })[this.modal] || ''; },
+    get modalTitle() { if(this.modal==='equipment')return 'Card / Slot semua OLT';if(this.modal==='onus'&&!this.selected)return 'ONU semua OLT';if(this.modal==='ports')return 'Port '+this.ponLabel();if(this.modal==='power-form')return this.powerForm?.id ? 'Edit Target Monitoring' : 'Tambah Target Monitoring';if(this.modal==='power-group-form')return this.powerGroupForm?.id ? 'Edit Kategori Monitoring' : 'Tambah Kategori Monitoring';if(this.modal==='customer-group-form')return this.customerGroupForm?.id ? 'Edit Grup Pelanggan' : 'Tambah Grup Pelanggan'; return ({ power: 'Monitoring ONU', profiles: 'Profil layanan', provision: 'Pasang ONU', profile: 'Profil Anda', telegram: 'Notifikasi Telegram & WhatsApp', whatsapp: 'Notifikasi WhatsApp & Telegram', api: 'Open API', tags: 'Tags pelanggan', vpn: 'VPN', balance: 'Saldo', affiliate: 'Affiliate', staff: 'Staff workspace', audit: 'Audit aktivitas', degradation: 'Redaman Memburuk', maps: 'FTTH Maps', backups:'Backup konfigurasi', upgrade: 'Upgrade paket', add: 'Tambah OLT', edit: 'Edit OLT', delete: 'Hapus perangkat OLT', info: 'Informasi OLT', view: 'Detail sistem OLT', onus: 'Daftar ONU', cli: 'Web CLI' })[this.modal] || ''; },
     get moduleDescription() { return ({ telegram: 'Notifikasi gangguan dan redaman optik untuk NOC serta teknisi lapangan.', vpn: 'Koneksi privat untuk menghubungkan jaringan tenant ke platform NMS.', affiliate: 'Program referensi ISP dan pencatatan komisi langganan.' })[this.modal]; },
     oltName(id) { return this.db.olts.find(o => o.id === id)?.name || '—'; },
     traffic(onu) { if(onu.download_bps==null || onu.upload_bps==null || !onu.traffic_observed_at || Date.now()-new Date(onu.traffic_observed_at).getTime()>180000)return '\u2014 / \u2014';return '\u2193 '+(onu.download_bps/1000000).toFixed(2)+' / \u2191 '+(onu.upload_bps/1000000).toFixed(2)+' Mbps'; },

@@ -27,6 +27,11 @@ class PowerMonitor extends Model
         return $this->belongsTo(Tenant::class);
     }
 
+    public function group()
+    {
+        return $this->belongsTo(PowerMonitorGroup::class, 'power_monitor_group_id');
+    }
+
     public function onu()
     {
         return $this->belongsTo(Onu::class);

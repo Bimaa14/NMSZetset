@@ -6,8 +6,8 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Grup Pelanggan</span>
             </div>
-            <h1>Grup Pelanggan (VLAN)<span class="title-dot"></span></h1>
-            <p class="muted">Pengelompokan pelanggan otomatis berdasarkan nomor VLAN ONU di OLT (contoh: Simaya Starbiz VLAN 97, Simaya Retail VLAN 95 &amp; 99).</p>
+            <h1>Grup Pelanggan<span class="title-dot"></span></h1>
+            <p class="muted">Pengelompokan pelanggan otomatis berdasarkan nomor VLAN OLT dan/atau kata kunci nama ONU (contoh: Simaya Starbiz VLAN 97, LocalLoop berdasarkan nama ONU).</p>
         </div>
         <div class="power-page-actions" x-show="db.permissions.operate">
             <button type="button" class="btn secondary" :disabled="groupSyncing" @click="syncGroupVlans()">
@@ -80,8 +80,11 @@
                     </div>
                 </div>
                 <div class="group-vlan-pills">
-                    <template x-for="vid in g.vlan_ids || []" :key="vid">
+                    <template x-for="vid in g.vlan_ids || []" :key="'v-'+vid">
                         <span class="power-sn-pill mono" x-text="'VLAN ' + vid"></span>
+                    </template>
+                    <template x-for="kw in g.name_keywords || []" :key="'k-'+kw">
+                        <span class="group-keyword-pill" x-text="'Nama: ' + kw"></span>
                     </template>
                 </div>
                 <div class="group-metrics">
@@ -115,12 +118,12 @@
                     <span class="group-color-dot" style="background:var(--muted)"></span>
                     <div>
                         <h3>Belum Tergrup</h3>
-                        <p class="muted small">ONU dengan VLAN lain atau belum punya VLAN</p>
+                        <p class="muted small">ONU yang belum cocok dengan aturan VLAN atau nama grup mana pun</p>
                     </div>
                 </div>
             </div>
             <div class="group-vlan-pills">
-                <span class="power-group-pill mono">VLAN lainnya / kosong</span>
+                <span class="power-group-pill mono">Di luar aturan grup</span>
             </div>
             <div class="group-metrics">
                 <div>
@@ -183,7 +186,7 @@
             <select class="power-select" x-model="selectedGroupFilter" @change="loadGroupOnus(1)" aria-label="Filter Grup Pelanggan">
                 <option value="all">Semua Grup / ONU</option>
                 <template x-for="g in customerGroupData.groups || []" :key="g.id">
-                    <option :value="String(g.id)" x-text="g.name + ' (VLAN ' + (g.vlan_ids||[]).join(', ') + ')'"></option>
+                    <option :value="String(g.id)" x-text="customerGroupRuleLabel(g)"></option>
                 </template>
                 <option value="ungrouped">Belum Tergrup</option>
             </select>

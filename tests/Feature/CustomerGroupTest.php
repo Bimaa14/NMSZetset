@@ -128,4 +128,49 @@ class CustomerGroupTest extends TestCase
         $this->assertSame(97, $onu->fresh()->vlan_id);
         $this->assertSame([97], $onu->fresh()->vlan_ids);
     }
+
+    public function test_customer_group_supports_onu_name_keywords_without_vlan(): void
+    {
+        $owner = $this->owner();
+        $onus = Onu::current()->where('tenant_id', $owner->tenant_id)->orderBy('id')->limit(4)->get();
+        $onus[0]->update(['name' => 'LOCALLOOP-PT-MAJU', 'description' => null, 'vlan_id' => 501, 'vlan_ids' => [501], 'phase_state' => 'working']);
+        $onus[1]->update(['name' => 'CUSTOMER-REGULAR', 'description' => 'Link Dedicated Tower B', 'vlan_id' => 502, 'vlan_ids' => [502], 'phase_state' => 'los']);
+        $onus[2]->update(['name' => 'RETAIL-HOME-01', 'description' => null, 'vlan_id' => 95, 'vlan_ids' => [95], 'phase_state' => 'working']);
+        $onus[3]->update(['name' => 'OTHER-USER-99', 'description' => null, 'vlan_id' => 888, 'vlan_ids' => [888], 'phase_state' => 'working']);
+
+        // Reject when both VLAN and keywords are empty
+        $this->actingAs($owner)->postJson('/customer-groups', [
+            'name' => 'Kosong',
+            'vlans' => '',
+            'keywords' => '',
+        ])->assertStatus(422);
+
+        // Create name-only group (no VLAN required)
+        $llRes = $this->actingAs($owner)->postJson('/customer-groups', [
+            'name' => 'LocalLoop',
+            'vlans' => '',
+            'keywords' => 'localloop, dedicated',
+            'color_hex' => '#a855f7',
+        ])->assertCreated();
+        $llId = $llRes->json('group.id');
+
+        $index = $this->getJson('/customer-groups')->assertOk()->json();
+        $ll = collect($index['groups'])->firstWhere('id', $llId);
+        $this->assertSame([], $ll['vlan_ids']);
+        $this->assertSame(['localloop', 'dedicated'], $ll['name_keywords']);
+        $this->assertSame(2, $ll['total_onus']);
+        $this->assertSame(1, $ll['los_onus']);
+
+        // Filter /onus by name-based group matches both name & description case-insensitively
+        $llOnus = $this->getJson('/onus?customer_group_id='.$llId)->assertOk()->json('data');
+        $this->assertEqualsCanonicalizing([$onus[0]->id, $onus[1]->id], array_column($llOnus, 'id'));
+        $this->assertSame('LocalLoop', $llOnus[0]['customer_groups'][0]['name']);
+
+        // Ungrouped excludes ONUs matched by name keywords
+        $ungrouped = $this->getJson('/onus?customer_group_id=ungrouped&per_page=200')->assertOk()->json('data');
+        $ungroupedIds = array_column($ungrouped, 'id');
+        $this->assertNotContains($onus[0]->id, $ungroupedIds);
+        $this->assertNotContains($onus[1]->id, $ungroupedIds);
+        $this->assertContains($onus[3]->id, $ungroupedIds);
+    }
 }
