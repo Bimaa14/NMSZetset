@@ -50,7 +50,7 @@
                 <small class="red-text" x-show="fieldError('onu_id')" x-text="fieldError('onu_id')"></small>
             </label>
             <label :class="{'full-width': powerForm.monitor_type !== 'ping'}">Override Grup WA Khusus Target Ini (opsional)
-                <input x-model="powerForm.whatsapp_recipients_override" maxlength="500" placeholder="Kosongkan untuk mengikuti grup WA Monitoring global">
+                <input x-model="powerForm.whatsapp_recipients_override" maxlength="500" placeholder="Kosongkan untuk mengikuti Grup WA kategori yang dipilih">
             </label>
         </div>
         <div class="power-editor-footer">

@@ -168,14 +168,14 @@ export function workspaceModules(){return {
     closePowerGroup(){this.selectedPowerGroup='';this.powerFilter={q:'',group:'all',status:'all'};},
     activePowerGroupObj(){if(!this.selectedPowerGroup||['all','ungrouped'].includes(this.selectedPowerGroup))return null;return (this.powerData.monitor_groups||[]).find(g=>String(g.id)===this.selectedPowerGroup)||null;},
     activePowerGroupLabel(){if(this.selectedPowerGroup==='all')return 'Semua Target';if(this.selectedPowerGroup==='ungrouped')return 'Tanpa Kategori';return this.activePowerGroupObj()?.name||'Monitoring ONU';},
-    newPowerGroup(){this.error='';this.validationErrors={};const palette=['#f59e0b','#10b981','#38bdf8','#a855f7','#ec4899'];const nextColor=palette[(this.powerData.monitor_groups||[]).length%palette.length];this.powerGroupForm={id:null,name:'',color_hex:nextColor,description:''};this.open('power-group-form');},
-    editPowerGroup(g){if(!g)return;this.error='';this.validationErrors={};this.powerGroupForm={id:g.id,name:g.name,color_hex:g.color_hex||'#f59e0b',description:g.description||''};this.open('power-group-form');},
+    newPowerGroup(){this.error='';this.validationErrors={};const palette=['#f59e0b','#10b981','#38bdf8','#a855f7','#ec4899'];const nextColor=palette[(this.powerData.monitor_groups||[]).length%palette.length];this.powerGroupForm={id:null,name:'',color_hex:nextColor,description:'',whatsapp_recipients:'',telegram_chat_id:'',telegram_thread_id:''};this.open('power-group-form');},
+    editPowerGroup(g){if(!g)return;this.error='';this.validationErrors={};this.powerGroupForm={id:g.id,name:g.name,color_hex:g.color_hex||'#f59e0b',description:g.description||'',whatsapp_recipients:g.whatsapp_recipients||'',telegram_chat_id:g.telegram_chat_id||'',telegram_thread_id:g.telegram_thread_id||''};this.open('power-group-form');},
     async savePowerGroup(){
         if(this.busy||!this.powerGroupForm)return;
         this.busy=true;this.error='';this.validationErrors={};
         try{
             const p=this.powerGroupForm;
-            const data=await this.request(p.id?'/power-monitors/groups/'+p.id:'/power-monitors/groups',p.id?'PUT':'POST',{name:p.name,color_hex:p.color_hex,description:p.description||null});
+            const data=await this.request(p.id?'/power-monitors/groups/'+p.id:'/power-monitors/groups',p.id?'PUT':'POST',{name:p.name,color_hex:p.color_hex,description:p.description||null,whatsapp_recipients:p.whatsapp_recipients||null,telegram_chat_id:p.telegram_chat_id||null,telegram_thread_id:p.telegram_thread_id||null});
             this.applyPowerPayload(data);
             this.busy=false;this.closeModal();
             this.notify(data.message);

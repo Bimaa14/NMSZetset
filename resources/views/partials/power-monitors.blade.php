@@ -124,6 +124,10 @@
                                     <button type="button" class="icon-button red-text" @click.stop="deletePowerGroup(g)" title="Hapus kategori"><i data-lucide="trash-2"></i></button>
                                 </div>
                             </div>
+                            <div class="group-vlan-pills" x-show="g.whatsapp_recipients || g.telegram_chat_id">
+                                <span class="power-sn-pill mono" x-show="g.whatsapp_recipients" x-text="'WA: ' + g.whatsapp_recipients"></span>
+                                <span class="group-keyword-pill mono" x-show="g.telegram_chat_id" x-text="'TG: ' + g.telegram_chat_id"></span>
+                            </div>
                             <div class="group-metrics">
                                 <div>
                                     <span class="muted small">Total</span>

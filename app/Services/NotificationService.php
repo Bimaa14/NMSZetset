@@ -111,7 +111,9 @@ class NotificationService
         ?int $oltId = null,
         ?int $onuId = null,
         ?int $powerMonitorId = null,
-        bool $strictTest = false
+        bool $strictTest = false,
+        ?string $tgOverride = null,
+        ?string $tgThreadOverride = null
     ): array {
         $results = [];
         $waTargets = trim((string) ($waOverride ?: $setting->power_whatsapp_recipients ?: $setting->whatsapp_recipients));
@@ -130,15 +132,17 @@ class NotificationService
             }
         }
 
-        $tgTargets = trim((string) ($setting->power_telegram_chat_id ?: $setting->telegram_chat_id));
-        $canSendTg = ($setting->telegram_enabled || (trim((string) $setting->power_telegram_chat_id) !== '' && trim((string) $setting->telegram_bot_token_enc) !== ''))
+        $tgTargets = trim((string) ($tgOverride ?: $setting->power_telegram_chat_id ?: $setting->telegram_chat_id));
+        $canSendTg = ($setting->telegram_enabled || (trim((string) ($tgOverride ?: $setting->power_telegram_chat_id)) !== '' && trim((string) $setting->telegram_bot_token_enc) !== ''))
             && $tgTargets !== ''
             && trim((string) $setting->telegram_bot_token_enc) !== '';
 
         if ($canSendTg) {
             $tgSetting = clone $setting;
             $tgSetting->telegram_chat_id = $tgTargets;
-            if (trim((string) $setting->power_telegram_chat_id) !== '') {
+            if (trim((string) ($tgOverride ?? '')) !== '') {
+                $tgSetting->telegram_thread_id = trim((string) ($tgThreadOverride ?? '')) ?: null;
+            } elseif (trim((string) $setting->power_telegram_chat_id) !== '') {
                 $tgSetting->telegram_thread_id = $setting->power_telegram_thread_id;
             }
             try {

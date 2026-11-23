@@ -284,12 +284,18 @@ class PowerMonitorController extends Controller
             'name' => ['required', 'string', 'max:100', Rule::unique('power_monitor_groups')->where('tenant_id', $tenantId)->ignore($group?->id)],
             'color_hex' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'description' => ['nullable', 'string', 'max:255'],
+            'whatsapp_recipients' => ['nullable', 'string', 'max:500'],
+            'telegram_chat_id' => ['nullable', 'string', 'max:255'],
+            'telegram_thread_id' => ['nullable', 'string', 'max:64'],
         ]);
 
         return [
             'name' => trim($data['name']),
             'color_hex' => $data['color_hex'] ?: '#10b981',
             'description' => trim((string) ($data['description'] ?? '')) ?: null,
+            'whatsapp_recipients' => trim((string) ($data['whatsapp_recipients'] ?? '')) ?: null,
+            'telegram_chat_id' => trim((string) ($data['telegram_chat_id'] ?? '')) ?: null,
+            'telegram_thread_id' => trim((string) ($data['telegram_thread_id'] ?? '')) ?: null,
         ];
     }
 
@@ -419,6 +425,9 @@ class PowerMonitorController extends Controller
                 'name' => $g->name,
                 'color_hex' => $g->color_hex,
                 'description' => $g->description,
+                'whatsapp_recipients' => $g->whatsapp_recipients ?? '',
+                'telegram_chat_id' => $g->telegram_chat_id ?? '',
+                'telegram_thread_id' => $g->telegram_thread_id ?? '',
                 'total' => $total,
                 'up' => $up,
                 'warning' => $warning,
@@ -434,10 +443,15 @@ class PowerMonitorController extends Controller
         $latencies = $monitors->pluck('last_latency_ms')->filter(fn ($v) => $v !== null);
 
         $setting = NotificationSetting::forTenant($tenantId);
-        $hasGateway = ($setting->whatsapp_enabled && ! empty($setting->whatsapp_endpoint_url))
-            || (! empty($setting->whatsapp_endpoint_url) && ! empty($setting->power_whatsapp_recipients))
-            || ($setting->telegram_enabled && ! empty($setting->telegram_bot_token_enc))
-            || (! empty($setting->telegram_bot_token_enc) && ! empty($setting->power_telegram_chat_id));
+        $hasAnyWaTarget = ! empty($setting->power_whatsapp_recipients)
+            || ! empty($setting->whatsapp_recipients)
+            || $monitorGroups->contains(fn ($g) => ! empty($g->whatsapp_recipients))
+            || $monitors->contains(fn ($m) => ! empty($m['whatsapp_recipients_override']));
+        $hasAnyTgTarget = ! empty($setting->power_telegram_chat_id)
+            || ! empty($setting->telegram_chat_id)
+            || $monitorGroups->contains(fn ($g) => ! empty($g->telegram_chat_id));
+        $hasGateway = (! empty($setting->whatsapp_endpoint_url) && ($setting->whatsapp_enabled || $hasAnyWaTarget))
+            || (! empty($setting->telegram_bot_token_enc) && ($setting->telegram_enabled || $hasAnyTgTarget));
 
         return [
             'monitors' => $monitors,

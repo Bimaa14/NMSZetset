@@ -19,7 +19,7 @@ class PowerMonitorService
     public function checkAllDue(?int $tenantId = null): int
     {
         $lockKey = 'nms:power-poll:'.($tenantId ?? 'all');
-        $lock = Cache::lock($lockKey, 55);
+        $lock = Cache::lock($lockKey, 25);
         if (! $lock->get()) {
             return 0;
         }
@@ -32,7 +32,7 @@ class PowerMonitorService
                 ->whereNotNull('ip_address')
                 ->where(function ($q) {
                     $q->whereNull('last_checked_at')
-                        ->orWhere('last_checked_at', '<=', now()->subSeconds(55));
+                        ->orWhere('last_checked_at', '<=', now()->subSeconds(25));
                 })
                 ->orderBy('id');
 
@@ -191,7 +191,7 @@ class PowerMonitorService
                 }
             }
 
-            return $locked->fresh(['onu.port', 'onu.olt']);
+            return $locked->fresh(['group', 'onu.port', 'onu.olt']);
         });
 
         if (! $fresh) {
@@ -221,12 +221,12 @@ class PowerMonitorService
             ->where('is_enabled', true)
             ->whereIn('monitor_type', ['onu', 'both'])
             ->whereIn('onu_id', $onuIds)
-            ->with('onu.port', 'onu.olt')
+            ->with('group', 'onu.port', 'onu.olt')
             ->get()
             ->groupBy('onu_id');
 
-        $downStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'restorefail', 'sync-mib', 'logging', 'auth'];
-        $recoveryFromStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'restorefail', 'sync-mib', 'logging', 'auth'];
+        $downStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'rebooting', 'restorefail', 'sync-mib', 'logging', 'auth'];
+        $recoveryFromStates = ['dying-gasp', 'poweroff', 'offline', 'los', 'rebooting', 'restorefail', 'sync-mib', 'logging', 'auth'];
 
         foreach ($statusChanges as $item) {
             /** @var Onu $onu */
@@ -270,7 +270,7 @@ class PowerMonitorService
                                 $transition = 'power_down';
                             }
 
-                            return $locked->fresh(['onu.port', 'onu.olt']);
+                            return $locked->fresh(['group', 'onu.port', 'onu.olt']);
                         });
 
                         if ($fresh && $transition === 'power_down') {
@@ -297,7 +297,7 @@ class PowerMonitorService
                                 $transition = 'power_up';
                             }
 
-                            return $locked->fresh(['onu.port', 'onu.olt']);
+                            return $locked->fresh(['group', 'onu.port', 'onu.olt']);
                         });
 
                         if ($fresh && $transition === 'power_up') {
@@ -357,18 +357,28 @@ class PowerMonitorService
                 $durationText = $this->formatDuration($previousDownAt, now());
             }
 
+            $monitor->loadMissing('group');
             $message = $this->formatPowerMonitorMessage($monitor, $eventType, $reason, $durationText);
             $oltId ??= $monitor->onu?->olt_id;
             $onuId ??= $monitor->onu_id;
+
+            $waRecipient = trim((string) ($monitor->whatsapp_recipients_override ?? ''))
+                ?: trim((string) ($monitor->group?->whatsapp_recipients ?? ''))
+                ?: null;
+            $tgRecipient = trim((string) ($monitor->group?->telegram_chat_id ?? '')) ?: null;
+            $tgThread = trim((string) ($monitor->group?->telegram_thread_id ?? '')) ?: null;
 
             $this->notifications->deliverPowerMessage(
                 $setting,
                 $message,
                 $eventType,
-                $monitor->whatsapp_recipients_override,
+                $waRecipient,
                 $oltId,
                 $onuId,
-                $monitor->id
+                $monitor->id,
+                false,
+                $tgRecipient,
+                $tgThread
             );
         } catch (Throwable $e) {
             Log::warning('Power monitor notification failed', [
@@ -413,15 +423,25 @@ class PowerMonitorService
 
     private function formatPowerMonitorMessage(PowerMonitor $monitor, string $eventType, string $reason, ?string $durationText): string
     {
-        $header = $eventType === 'power_down'
-            ? '⚡ *[MONITORING LISTRIK] PLN / LISTRIK PADAM*'
-            : '✅ *[MONITORING LISTRIK] LISTRIK MENYALA KEMBALI*';
+        $categoryName = trim((string) ($monitor->group?->name ?: $monitor->group_name ?: 'Listrik'));
+        $isPowerCategory = (bool) preg_match('/listrik|pln|power/i', $categoryName);
+        $upperCategory = mb_strtoupper($categoryName);
+
+        if ($isPowerCategory) {
+            $header = $eventType === 'power_down'
+                ? '⚡ *[MONITORING LISTRIK] PLN / LISTRIK PADAM*'
+                : '✅ *[MONITORING LISTRIK] LISTRIK MENYALA KEMBALI*';
+        } else {
+            $header = $eventType === 'power_down'
+                ? "🚨 *[MONITORING {$upperCategory}] PERANGKAT OFFLINE / DOWN*"
+                : "✅ *[MONITORING {$upperCategory}] PERANGKAT ONLINE KEMBALI*";
+        }
 
         $lines = [
             $header,
             '',
             "• Lokasi / Perangkat: *{$monitor->name}*",
-            "• Group: {$monitor->group_name}",
+            "• Kategori: {$categoryName}",
         ];
 
         if ($monitor->location) {
@@ -440,13 +460,13 @@ class PowerMonitorService
         }
 
         if ($eventType === 'power_down') {
-            $lines[] = '• Status: *PADAM / OFFLINE*';
+            $lines[] = $isPowerCategory ? '• Status: *PADAM / OFFLINE*' : '• Status: *OFFLINE / DOWN*';
             $lines[] = "• Hasil Cek: {$reason}";
         } else {
             $latency = $monitor->last_latency_ms !== null ? ' (Ping: '.number_format((float) $monitor->last_latency_ms, 2).' ms)' : '';
-            $lines[] = "• Status: *MENYALA KEMBALI (UP)*{$latency}";
+            $lines[] = ($isPowerCategory ? '• Status: *MENYALA KEMBALI (UP)*' : '• Status: *ONLINE KEMBALI (UP)*').$latency;
             if ($durationText) {
-                $lines[] = "• Durasi Padam: {$durationText}";
+                $lines[] = ($isPowerCategory ? '• Durasi Padam: ' : '• Durasi Gangguan: ').$durationText;
             }
         }
 

@@ -281,4 +281,55 @@ class PowerMonitoringTest extends TestCase
         $this->assertSame(1, $afterDelete['ungrouped_count']);
         $this->assertSame(2, $afterDelete['summary']['total']);
     }
+
+    public function test_category_whatsapp_group_and_rebooting_transition_send_category_alert(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:3001/*' => Http::response(['status' => true], 200),
+        ]);
+
+        $owner = $this->owner();
+        $olt = Olt::where('tenant_id', $owner->tenant_id)->firstOrFail();
+        $port = OltPort::where('olt_id', $olt->id)->firstOrFail();
+        $onu = Onu::where('olt_id', $olt->id)->where('olt_port_id', $port->id)->firstOrFail();
+
+        // Global WA disabled & power_whatsapp_recipients empty — ONLY gateway URL + category WA group configured
+        NotificationSetting::forTenant($owner->tenant_id)->update([
+            'whatsapp_enabled' => false,
+            'whatsapp_provider' => 'custom',
+            'whatsapp_endpoint_url' => 'http://127.0.0.1:3001/send-message',
+            'power_notify_enabled' => true,
+            'power_whatsapp_recipients' => null,
+        ]);
+
+        $erablue = $this->actingAs($owner)->postJson('/power-monitors/groups', [
+            'name' => 'ERABLUE',
+            'color_hex' => '#10b981',
+            'whatsapp_recipients' => '120363415568402255@g.us',
+        ])->assertCreated()->json('group');
+
+        $monRes = $this->actingAs($owner)->postJson('/power-monitors', [
+            'name' => 'ERABLUE H.AMIR',
+            'power_monitor_group_id' => $erablue['id'],
+            'monitor_type' => 'onu',
+            'onu_id' => $onu->id,
+            'is_enabled' => true,
+        ])->assertCreated()->assertJsonPath('settings.has_gateway', true);
+
+        $monitorId = collect($monRes->json('monitors'))->firstWhere('name', 'ERABLUE H.AMIR')['id'];
+        PowerMonitor::whereKey($monitorId)->update(['status' => 'up']);
+
+        // ONU enters rebooting state -> must trigger alert to ERABLUE's WA group with [MONITORING ERABLUE] header
+        app(NotificationService::class)->dispatchBatch($olt, [
+            ['onu' => $onu, 'port' => $port, 'old_phase' => 'working', 'new_phase' => 'rebooting'],
+        ]);
+
+        $this->assertDatabaseHas('power_monitors', ['id' => $monitorId, 'status' => 'down']);
+        $this->assertSame(1, NotificationLog::where('power_monitor_id', $monitorId)
+            ->where('event_type', 'power_down')
+            ->where('recipient', '120363415568402255@g.us')
+            ->where('status', 'sent')
+            ->count());
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'target=120363415568402255%40g.us') && str_contains($req->body(), '[MONITORING ERABLUE]'));
+    }
 }
