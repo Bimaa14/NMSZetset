@@ -1,10 +1,11 @@
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-
+let leafletModPromise;
 let networkMap;let networkLayers;
 function clearMap() { if(networkMap){networkMap.remove();networkMap=null;} }
-function drawMap(container,nodes,onus,assignments,olts,selectNode,coordinates) {
-    if(!container)return;const first=!networkMap||networkMap.getContainer()!==container;
+async function drawMap(container,nodes,onus,assignments,olts,selectNode,coordinates) {
+    if(!container)return;
+    const [{default:L}]=await (leafletModPromise??=Promise.all([import('leaflet'),import('leaflet/dist/leaflet.css')]));
+    if(!container.isConnected)return;
+    const first=!networkMap||networkMap.getContainer()!==container;
     if(first){clearMap();networkMap=L.map(container).setView([-6.9175,107.6191],12);networkLayers=L.layerGroup().addTo(networkMap);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(networkMap);}
     networkLayers.clearLayers();

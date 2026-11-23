@@ -117,9 +117,16 @@ class ZteTrafficCollectorService
     }
 
     public function coverage(Olt $olt):array {
-        $onus=$olt->onus()->current()->where('phase_state','working');$ports=$olt->ports()->current();$target=max(15,(int)config('olt.traffic_interval',60));
-        $total=(clone$onus)->count()+(clone$ports)->count();$fresh=0;$oldest=null;
-        foreach([$onus,$ports]as$q){$fresh+=(clone$q)->where('traffic_observed_at','>=',now()->subSeconds($target))->whereNotNull('download_bps')->whereNotNull('upload_bps')->count();$at=(clone$q)->min('traffic_observed_at');if($at&&(!$oldest||$at<$oldest))$oldest=$at;}
+        $target=max(15,(int)config('olt.traffic_interval',60));
+        $cutoff=now()->subSeconds($target);
+        $total=0;$fresh=0;$oldest=null;
+        foreach([$olt->onus()->current()->where('phase_state','working'),$olt->ports()->current()] as $q){
+            $agg=$q->selectRaw('COUNT(*) as total_cnt, SUM(CASE WHEN traffic_observed_at >= ? AND download_bps IS NOT NULL AND upload_bps IS NOT NULL THEN 1 ELSE 0 END) as fresh_cnt, MIN(traffic_observed_at) as min_at',[$cutoff])->first();
+            $total+=(int)($agg->total_cnt??0);
+            $fresh+=(int)($agg->fresh_cnt??0);
+            $at=$agg->min_at??null;
+            if($at&&(!$oldest||$at<$oldest))$oldest=$at;
+        }
         return ['target_seconds'=>$target,'interfaces'=>$total,'fresh'=>$fresh,'overdue'=>max(0,$total-$fresh),'oldest_sample_at'=>$oldest,'complete'=>$fresh===$total];
     }
 }

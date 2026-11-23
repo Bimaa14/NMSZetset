@@ -11,19 +11,29 @@ import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
 
 const icons = { Server, Sun, Moon, Monitor, ChevronDown, LogOut, LayoutDashboard, CircleUserRound, Send, CodeXml, Tags, ShieldCheck, Wallet, UsersRound, ContactRound, ScrollText, ChevronRight, Network, Search, SearchX, Layers2, Zap, ArrowUpRight, ServerCog, Cpu, RadioTower, Unplug, Activity, ArrowRight, Map: MapIcon, Plus, MapPin, Info, Pencil, Terminal, EthernetPort, GitFork, Eye, RefreshCw, Router, Trash2, LockKeyhole, ServerOff, X, Thermometer, Clock3, CornerDownLeft, Copy, PlugZap, CircleCheck, MoreHorizontal };
-let iconFrame;
+const allIcons = { ...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle, Waypoints };
+let iconFrame = 0;
 const pendingIconSelector = '[data-lucide]:not(svg)';
 const refreshIcons = () => {
-    cancelAnimationFrame(iconFrame);
+    if (iconFrame) return;
     iconFrame = requestAnimationFrame(() => {
+        iconFrame = 0;
         if (!document.querySelector(pendingIconSelector)) return;
-        createIcons({ icons: {...icons, AlertTriangle, RotateCw, Minus, ScanSearch, Move, RotateCcw, Menu, ArrowLeft, Settings2, MessageCircle, Waypoints}, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
+        createIcons({ icons: allIcons, attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
         // Lucide copies this marker onto its output. Consume it so later renders
         // leave existing SVGs attached, including between pointer down and up.
         document.querySelectorAll('svg[data-lucide]').forEach(icon => icon.removeAttribute('data-lucide'));
     });
 };
-new MutationObserver(records => { if (records.some(r => [...r.addedNodes].some(n => n.nodeType === 1 && (n.matches?.(pendingIconSelector) || n.querySelector?.(pendingIconSelector))))) refreshIcons(); }).observe(document.body, { childList: true, subtree: true });
+new MutationObserver(records => {
+    if (iconFrame) return;
+    for (let i = 0; i < records.length; i++) {
+        const nodes = records[i].addedNodes;
+        for (let j = 0; j < nodes.length; j++) {
+            if (nodes[j].nodeType === 1) { refreshIcons(); return; }
+        }
+    }
+}).observe(document.body, { childList: true, subtree: true });
 
 Alpine.data('dashboard', () => Object.defineProperties({
     ...workspaceModules(),

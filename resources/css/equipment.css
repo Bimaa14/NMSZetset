@@ -2,15 +2,15 @@
    NOC Visual Polish: Ambient Aurora, KPI Accents, Live Radar & Hardware Rack
    ========================================================================== */
 
-/* 1. Ambient Aurora & Subtle NOC Dot-Grid Backdrop */
+/* 1. Ambient Aurora & Subtle NOC Dot-Grid Backdrop (scroll-friendly, GPU-light) */
 :root[data-theme=dark] body {
     background-color: #0f1216;
     background-image:
         radial-gradient(ellipse 80% 420px at 55% -80px, rgba(52, 211, 153, 0.10), rgba(56, 189, 248, 0.05) 45%, transparent 75%),
         radial-gradient(circle at 88% 18%, rgba(139, 92, 246, 0.05), transparent 40%),
         radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 24px 24px;
-    background-attachment: fixed;
+    background-size: 100% 720px, 100% 720px, 24px 24px;
+    background-repeat: no-repeat, no-repeat, repeat;
 }
 
 :root:not([data-theme=dark]) body,
@@ -18,8 +18,8 @@
     background-image:
         radial-gradient(ellipse 80% 380px at 55% -90px, rgba(16, 185, 129, 0.07), rgba(14, 165, 233, 0.04) 45%, transparent 75%),
         radial-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px);
-    background-size: 100% 100%, 24px 24px;
-    background-attachment: fixed;
+    background-size: 100% 680px, 24px 24px;
+    background-repeat: no-repeat, repeat;
 }
 
 /* Header & Sidebar Depth (Note: avoid backdrop-filter on .top-row because .brand is position:fixed inside it) */
@@ -88,7 +88,6 @@
     box-shadow: 0 0 8px rgba(16, 185, 129, 0.75);
 }
 .refresh-state .dot.green::after,
-.status-badge.online .dot.green::after,
 .nav-tenant .dot.green::after {
     content: '';
     position: absolute;
@@ -1063,8 +1062,7 @@ dialog.lumina-confirm-dialog {
     overflow: hidden;
 }
 dialog.lumina-confirm-dialog::backdrop {
-    background: rgba(8, 12, 18, 0.65);
-    backdrop-filter: blur(5px);
+    background: rgba(8, 12, 18, 0.72);
 }
 .lumina-confirm-shell {
     padding: 22px 22px 20px;
@@ -1513,4 +1511,16 @@ dialog.lumina-confirm-dialog::backdrop {
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
+}
+
+/* 10. Layout Containment & Fast Table Row Painting */
+.olt-card,
+.group-card,
+.power-kpi {
+    contain: layout style;
+}
+.power-table tbody tr,
+.onu-reference-table tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 56px;
 }

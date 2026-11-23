@@ -1,4 +1,16 @@
 {
+  "__commonjsHelpers-CqkleIqs.js": {
+    "file": "assets/_commonjsHelpers-CqkleIqs.js",
+    "name": "_commonjsHelpers"
+  },
+  "_leaflet-src-D-3EZ5K9.js": {
+    "file": "assets/leaflet-src-D-3EZ5K9.js",
+    "name": "leaflet-src",
+    "isDynamicEntry": true,
+    "imports": [
+      "__commonjsHelpers-CqkleIqs.js"
+    ]
+  },
   "node_modules/@fontsource-variable/inter/files/inter-cyrillic-ext-wght-normal.woff2": {
     "file": "assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2",
     "src": "node_modules/@fontsource-variable/inter/files/inter-cyrillic-ext-wght-normal.woff2"
@@ -87,23 +99,28 @@
     "file": "assets/marker-icon-hN30_KVU.png",
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
+  "node_modules/leaflet/dist/leaflet.css": {
+    "file": "assets/leaflet-CLLlcC51.css",
+    "src": "node_modules/leaflet/dist/leaflet.css"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-DpSKKOBq.css",
+    "file": "assets/app-DuEdr1ql.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BuOKLnsu.js",
+    "file": "assets/app-BVbK9E-F.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
+    "dynamicImports": [
+      "resources/js/traffic-chart.js",
+      "_leaflet-src-D-3EZ5K9.js"
+    ],
     "css": [
-      "assets/app-BY21RgRz.css"
+      "assets/app-Dc3eaBNc.css"
     ],
     "assets": [
-      "assets/layers-BWBAp2CZ.png",
-      "assets/layers-2x-Bpkbi35X.png",
-      "assets/marker-icon-hN30_KVU.png",
       "assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2",
       "assets/inter-cyrillic-wght-normal-DqGufNeO.woff2",
       "assets/inter-greek-ext-wght-normal-DlzME5K_.woff2",
@@ -123,6 +140,16 @@
       "assets/jetbrains-mono-latin-ext-400-normal-fXTG6kC5.woff",
       "assets/jetbrains-mono-latin-400-normal-V6pRDFza.woff2",
       "assets/jetbrains-mono-latin-400-normal-6-qcROiO.woff"
+    ]
+  },
+  "resources/js/traffic-chart.js": {
+    "file": "assets/traffic-chart-DHhtpjiS.js",
+    "name": "traffic-chart",
+    "src": "resources/js/traffic-chart.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.js",
+      "__commonjsHelpers-CqkleIqs.js"
     ]
   }
 }

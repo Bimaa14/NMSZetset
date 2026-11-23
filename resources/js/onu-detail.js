@@ -20,14 +20,24 @@ export function onuDetailModule(){return {
         finally{if(epoch===this.detailEpoch)this.detailInitialLoading=false;}
         if(epoch===this.detailEpoch)this.scheduleOnuDetail();
     },
-    startDetailClock(){clearInterval(this.detailClock);if(!document.hidden)this.detailClock=setInterval(()=>{this.detailNow=Date.now();},1000);},
-    suspendOnuDetail(){this.detailEpoch++;clearTimeout(this.detailTimer);clearInterval(this.detailClock);this.detailAbort?.abort();this.detailAbort=null;this.detailPrefetchAbort?.abort();this.detailPrefetchAbort=null;this.detailBusy=false;this.detailPrefetching=false;},
+    startDetailClock(){clearInterval(this.detailClock);if(!document.hidden)this.detailClock=setInterval(()=>{this.detailNow=Date.now();},5000);},
+    suspendOnuDetail(){this.detailEpoch++;clearTimeout(this.detailTimer);clearTimeout(this.detailRetryTimer);clearInterval(this.detailClock);this.detailAbort?.abort();this.detailAbort=null;this.detailPrefetchAbort?.abort();this.detailPrefetchAbort=null;this.detailBusy=false;this.detailPrefetching=false;},
     closeOnuInspector(){this.cancelRebootWait();this.suspendOnuDetail();this.$refs.onuDialog.close();this.inspectedOnu=null;this.detailSecrets={};this.detailEdit=null;this.detailConfirm=null;},
     detailData(section=this.detailTab){return this.detailSections[section]?.data||{};},
     detailItems(){return this.detailData().items||[];},
     detailValue(key){const value=this.detailData('info')[key];if(Object.hasOwn(this.detailData('info'),key))return value;return this.inspectedOnu?.[key]??null;},
     detailSubtitle(){const o=this.inspectedOnu;if(!o)return '';const m=(o.interface||'').match(/(?:(\d+)\/)?(\d+)\/(\d+):(\d+)/);return this.oltName(o.olt_id)+(m?' · Slot '+m[2]+' / PON '+m[3]+' / ID '+m[4]:'')+' · SN '+o.sn;},
-    detailAge(){const stamp=this.detailSections[this.detailTab]?.observed_at||this.inspectedOnu?.state_observed_at;if(!stamp)return 'Belum ada pembacaan live';const seconds=Math.max(0,Math.floor((this.detailNow-new Date(stamp).getTime())/1000));return 'Diperbarui '+(seconds<60?seconds+' detik':Math.floor(seconds/60)+' menit')+' lalu';},
+    detailAge(){
+        const stamp=this.detailSections[this.detailTab]?.observed_at||this.inspectedOnu?.state_observed_at;
+        if(!stamp)return 'Belum ada pembacaan live';
+        const seconds=Math.max(0,Math.floor((this.detailNow-new Date(stamp).getTime())/1000));
+        if(seconds<60)return 'Diperbarui '+seconds+' detik lalu';
+        const minutes=Math.floor(seconds/60);
+        if(minutes<60)return 'Diperbarui '+minutes+' menit lalu';
+        const hours=Math.floor(minutes/60);
+        if(hours<24)return 'Diperbarui '+hours+' jam lalu';
+        return 'Diperbarui '+Math.floor(hours/24)+' hari lalu';
+    },
     detailSectionFresh(sec,maxAgeMs=180000){
         const entry=this.detailSections[sec];
         if(!entry)return false;
@@ -78,13 +88,21 @@ export function onuDetailModule(){return {
             }
         }
     },
-    async refreshOnuSection(section=this.detailTab){
+    detailRetryTimer:null,
+    async refreshOnuSection(section=this.detailTab,retryAttempt=0){
         if(!this.inspectedOnu||this.isYotc(this.oltForOnu(this.inspectedOnu))||this.detailBusy||document.hidden)return;
         if(this.detailPrefetching){this.detailPrefetchAbort?.abort();this.detailPrefetchAbort=null;this.detailPrefetching=false;}
+        clearTimeout(this.detailRetryTimer);
         const id=this.inspectedOnu.id,epoch=this.detailEpoch;this.detailBusy=true;this.detailError='';this.detailAbort=new AbortController();
         try{
             const data=await this.request('/onus/'+id+'/detail/refresh','POST',{section},{signal:this.detailAbort.signal});
-            if(epoch!==this.detailEpoch||data.skipped)return;
+            if(epoch!==this.detailEpoch)return;
+            if(data.skipped){
+                if(retryAttempt<3&&this.$refs.onuDialog?.open){
+                    this.detailRetryTimer=setTimeout(()=>{if(epoch===this.detailEpoch&&this.$refs.onuDialog?.open&&!this.detailBusy)this.refreshOnuSection(section,retryAttempt+1);},3000);
+                }
+                return;
+            }
             this.detailSections={...this.detailSections,[section]:data};this.detailSecrets={};this.detailNow=Date.now();
         }
         catch(e){if(e.name!=='AbortError'&&epoch===this.detailEpoch)this.detailError=e.message;}
