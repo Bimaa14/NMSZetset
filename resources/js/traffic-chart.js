@@ -31,7 +31,25 @@ export function renderTrafficChart(canvas,data){
     if(!canvas||!data)return;let chart=charts.get(canvas);
     const {min,max}=bounds(data),yMax=ceiling(data),label=data.longRange?(max-min>=7*86400000?dateOnly:dateClock):clock,tooltipLabel=data.longRange?dateClock:clock;
     const previous=ranges.get(canvas);ranges.set(canvas,{min,max});
-    if(chart){const zoomed=previous&&(Math.abs(chart.scales.x.min-previous.min)>1||Math.abs(chart.scales.x.max-previous.max)>1);chart.data.datasets=datasets(data);chart.options.plugins.zoom.limits.x={min,max,minRange:1000};if(!zoomed){chart.options.scales.x.min=min;chart.options.scales.x.max=max;}chart.options.scales.y.max=yMax;chart.options.scales.x.ticks.callback=label;chart.options.plugins.tooltip.callbacks.title=items=>items.length?tooltipLabel(items[0].parsed.x):'';chart.update('none');return;}
+    if(chart){
+        const zoomed=previous&&(Math.abs(chart.scales.x.min-previous.min)>1||Math.abs(chart.scales.x.max-previous.max)>1);
+        const nextSets=datasets(data);
+        nextSets.forEach((ds,idx)=>{
+            if(chart.data.datasets[idx]){
+                chart.data.datasets[idx].data=ds.data;
+                chart.data.datasets[idx].pointRadius=ds.pointRadius;
+            }else{
+                chart.data.datasets[idx]=ds;
+            }
+        });
+        chart.options.plugins.zoom.limits.x={min,max,minRange:1000};
+        if(!zoomed){chart.options.scales.x.min=min;chart.options.scales.x.max=max;}
+        chart.options.scales.y.max=yMax;
+        chart.options.scales.x.ticks.callback=label;
+        chart.options.plugins.tooltip.callbacks.title=items=>items.length?tooltipLabel(items[0].parsed.x):'';
+        chart.update('none');
+        return;
+    }
     const light=document.documentElement.dataset.theme==='light',text=light?'#475569':'#94a3b8';
     chart=new Chart(canvas,{type:'line',data:{datasets:datasets(data)},options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,normalized:true,interaction:{mode:'index',intersect:false},layout:{padding:8},scales:{x:{type:'linear',min,max,afterBuildTicks:domainTicks,ticks:{autoSkip:false,maxTicksLimit:7,color:text,callback:label,font:{size:11}},grid:{display:false},border:{color:light?'#cbd5e1':'#334155'}},y:{max:yMax,beginAtZero:true,title:{display:true,text:'Mbps',color:text},ticks:{color:text,maxTicksLimit:5},grid:{color:light?'#cbd5e166':'#33415588'},border:{display:false,dash:[4,4]}}},plugins:{legend:{display:false},trafficCrosshair:true,tooltip:{enabled:true,backgroundColor:'#0f172a',borderColor:'#334155',borderWidth:1,titleColor:'#e2e8f0',bodyColor:'#e2e8f0',padding:12,cornerRadius:7,boxPadding:6,bodySpacing:6,titleMarginBottom:8,bodyFont:{size:13},usePointStyle:true,callbacks:{title:items=>items.length?tooltipLabel(items[0].parsed.x):'',label:context=>context.dataset.label+': '+context.parsed.y.toFixed(2)+' Mbps',labelColor:context=>({borderColor:context.dataset.borderColor,backgroundColor:context.dataset.borderColor})}},zoom:{limits:{x:{min,max,minRange:1000}},pan:{enabled:false,mode:'x'},zoom:{mode:'x',wheel:{enabled:false},pinch:{enabled:true},drag:{enabled:true,backgroundColor:'#60a5fa33',borderColor:'#60a5fa',borderWidth:1}}}}}});
     charts.set(canvas,chart);

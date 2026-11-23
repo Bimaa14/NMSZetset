@@ -88,12 +88,12 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DEtBUaUz.css",
+    "file": "assets/app-DpSKKOBq.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-DtqZONrd.js",
+    "file": "assets/app-BuOKLnsu.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

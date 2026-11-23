@@ -22,13 +22,21 @@ class ZteTrafficCollectorService
         $olt=$entity->olt;$name=$this->interface($entity);
         if($olt->connection_mode!=='real')throw new OltConnectionException('Traffic simulator belum memiliki counter. Tidak ada traffic buatan.','unavailable');
         $key=$this->connectionKey($olt);$recent=Cache::get($key.':recent:'.$entity->getTable().':'.$entity->id.':'.($entity->sn??'').':'.$name);
-        if($recent&&microtime(true)-$recent['at']<1)return $recent['data'];
+        if($recent&&microtime(true)-$recent['at']<0.8)return $recent['data'];
         if($olt->snmp_enabled&&!Cache::has($key.':snmp-down')){
             try{
-                $probe=clone $olt;$probe->connection_timeout=1;
-                $names=Cache::remember($key.':names',300,fn()=>$this->snmp->walk($probe,'.1.3.6.1.2.1.31.1.1.1.1'));
-                $index=null;foreach($names as $oid=>$label)if(trim((string)$label," \t\r\n\"")===$name&&preg_match('/\.(\d+)$/',$oid,$m)){$index=$m[1];break;}
+                $indices=Cache::remember($key.':if-indices',1800,function()use($olt){
+                    $walkProbe=clone $olt;$walkProbe->connection_timeout=max(4,(int)($olt->connection_timeout?:5));
+                    $names=$this->snmp->walk($walkProbe,'.1.3.6.1.2.1.31.1.1.1.1');
+                    $map=[];
+                    foreach($names as $oid=>$label){
+                        if(preg_match('/\.(\d+)$/',$oid,$m))$map[trim((string)$label," \t\r\n\"")]=$m[1];
+                    }
+                    return $map;
+                });
+                $index=$indices[$name]??null;
                 if($index!==null){
+                    $probe=clone $olt;$probe->connection_timeout=2;
                     $v=$this->snmp->get($probe,['.1.3.6.1.2.1.31.1.1.1.6.'.$index,'.1.3.6.1.2.1.31.1.1.1.10.'.$index,'.1.3.6.1.2.1.31.1.1.1.19.'.$index,'.1.3.6.1.2.1.1.3.0']);
                     if(!ctype_digit((string)$v[0])||!ctype_digit((string)$v[1])||!is_numeric($v[3]))throw new OltConnectionException('Counter SNMP tidak valid.','snmp_failed');
                     return $this->persist($entity,['rx_bps'=>null,'tx_bps'=>null,'rx_bytes'=>(string)$v[1],'tx_bytes'=>(string)$v[0]],'snmp',(float)$v[3],(string)$v[2]);
@@ -38,7 +46,7 @@ class ZteTrafficCollectorService
         $own=$client===null;$client??=$this->driver->client($olt);
         try{
             if($own)$client->connect($olt);
-            $data=$this->parser->parse($client->command('show interface '.$name,false,8,12));
+            $data=$this->parser->parse($client->command('show interface '.$name,false,4,8));
             if(count(array_filter($data,fn($v)=>$v!==null))===0)throw new OltConnectionException('Perintah show interface '.$name.' tidak memberikan rate/counter yang dikenali.','traffic_unavailable');
             return $this->persist($entity,$data,'cli');
         }finally{if($own)$client->close();}
@@ -74,9 +82,14 @@ class ZteTrafficCollectorService
         try{
             if($olt->snmp_enabled&&!Cache::has($this->connectionKey($olt).':snmp-down')){
                 try{
-                    $probe=clone $olt;$probe->connection_timeout=1;
-                    $names=Cache::remember($this->connectionKey($olt).':names',300,fn()=>$this->snmp->walk($probe,'.1.3.6.1.2.1.31.1.1.1.1'));
-                    $indices=[];foreach($names as$oid=>$label)if(preg_match('/\.(\d+)$/',$oid,$m))$indices[trim((string)$label," \t\r\n\"")]=$m[1];
+                    $indices=Cache::remember($this->connectionKey($olt).':if-indices',1800,function()use($olt){
+                        $walkProbe=clone $olt;$walkProbe->connection_timeout=max(4,(int)($olt->connection_timeout?:5));
+                        $names=$this->snmp->walk($walkProbe,'.1.3.6.1.2.1.31.1.1.1.1');
+                        $map=[];
+                        foreach($names as$oid=>$label)if(preg_match('/\.(\d+)$/',$oid,$m))$map[trim((string)$label," \t\r\n\"")]=$m[1];
+                        return $map;
+                    });
+                    $probe=clone $olt;$probe->connection_timeout=2;
                     while($count<$entities->count()&&microtime(true)-$start<20){
                         $batch=[];$oids=[];
                         for($j=0;$j<20&&$count+$j<$entities->count();$j++){

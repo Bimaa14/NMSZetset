@@ -17,7 +17,10 @@ class TrafficController extends Controller
         $entity=$this->entity($r,$kind,$id);
         try{$data=['sample'=>$collector->collect($entity)];}
         catch(\App\Services\Olt\OltConnectionException $e){if($e->reason!=='read_busy')throw $e;$data=['skipped'=>true,'reason'=>'read_busy'];}
-        $data['poll_after_seconds']=$entity->olt->chassis_type==='C1600'?max(15,(int)config('olt.yotc_traffic_live_interval',15)):2;
+        $isSnmp = ($data['sample']['source'] ?? null) === 'snmp';
+        $data['poll_after_seconds'] = $entity->olt->chassis_type === 'C1600'
+            ? max(15, (int) config('olt.yotc_traffic_live_interval', 15))
+            : ($isSnmp ? 1 : 2);
         return response()->json($data,isset($data['skipped'])?202:200)->header('Cache-Control','no-store');
     }
     public function history(Request $r,string $kind,int $id){
