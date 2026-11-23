@@ -136,7 +136,7 @@ class CustomerGroupTest extends TestCase
         $onus[0]->update(['name' => 'LOCALLOOP-PT-MAJU', 'description' => null, 'vlan_id' => 501, 'vlan_ids' => [501], 'phase_state' => 'working']);
         $onus[1]->update(['name' => 'CUSTOMER-REGULAR', 'description' => 'Link Dedicated Tower B', 'vlan_id' => 502, 'vlan_ids' => [502], 'phase_state' => 'los']);
         $onus[2]->update(['name' => 'RETAIL-HOME-01', 'description' => null, 'vlan_id' => 95, 'vlan_ids' => [95], 'phase_state' => 'working']);
-        $onus[3]->update(['name' => 'OTHER-USER-99', 'description' => null, 'vlan_id' => 888, 'vlan_ids' => [888], 'phase_state' => 'working']);
+        $onus[3]->update(['name' => 'AAA-OTHER-USER-99', 'description' => null, 'vlan_id' => 888, 'vlan_ids' => [888], 'phase_state' => 'working']);
 
         // Reject when both VLAN and keywords are empty
         $this->actingAs($owner)->postJson('/customer-groups', [
