@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Open API</span>
             </div>
-            <h1>Open API &amp; Token Akses<span class="title-dot"></span></h1>
+            <h1>Open API &amp; Token Akses</h1>
             <p class="muted">Token tenant untuk integrasi AI WhatsApp, billing, dan aplikasi teknisi. Token lengkap hanya ditampilkan sekali.</p>
         </div>
         <div class="power-page-actions">

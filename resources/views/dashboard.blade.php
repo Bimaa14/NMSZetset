@@ -46,8 +46,8 @@
     <main id="main" class="main-container">
         <div x-show="activePage==='dashboard'">
         <div class="page-heading">
-            <div><div class="breadcrumb">Workspace <i data-lucide="chevron-right"></i> <span>Dashboard</span></div><h1>Dashboard Jaringan<span class="title-dot"></span></h1><p class="muted">Pusat kendali dan telemetri infrastruktur jaringan FTTH secara real-time.</p></div>
-            <div class="workspace-status"><span class="lan-badge"><i data-lucide="network"></i> Core Optical Network</span><span class="muted small" x-show="db.demo"><span class="dot amber"></span> Lingkungan demo</span></div>
+            <div><div class="breadcrumb">Workspace <i data-lucide="chevron-right"></i> <span>Dashboard</span></div><h1>Dashboard Jaringan</h1><p class="muted">Ringkasan status perangkat OLT, koneksi ONU, dan kualitas redaman optik.</p></div>
+            <div class="workspace-status" x-show="db.demo"><span class="muted small"><span class="dot amber"></span> Lingkungan demo</span></div>
         </div>
 
 
@@ -82,7 +82,7 @@
 
         <p class="small muted live-summary"><span class="dot" :class="runtimeHealthy?'green':'amber'"></span><span class="amber-text" x-show="!runtimeHealthy">Pemantauan perangkat tertunda. </span> Layar diperbarui otomatis &middot; status {{ (int) ceil(config('olt.state_interval') / 60) }} menit &middot; optik {{ (int) ceil(config('olt.optical_interval') / 60) }} menit <span class="amber-text" x-show="liveError" x-text="liveError"></span></p>
         <section class="olts-section" aria-labelledby="olt-title">
-            <div class="section-heading"><div class="section-title"><h2 id="olt-title">OLT Anda</h2><span class="count-pill" x-text="db.olts.length"></span><span class="section-caption">Semua perangkat, satu kendali.</span></div><div class="section-actions"><button class="btn secondary" @click="open('maps')" x-show="db.permissions.maps"><i data-lucide="map"></i>FTTH Maps</button><button class="btn primary" @click="addOlt()" x-show="db.permissions.manage"><i data-lucide="plus"></i>Tambah OLT</button></div></div>
+            <div class="section-heading"><div class="section-title"><h2 id="olt-title">OLT Anda</h2><span class="count-pill" x-text="db.olts.length"></span></div><div class="section-actions"><button class="btn secondary" @click="open('maps')" x-show="db.permissions.maps"><i data-lucide="map"></i>FTTH Maps</button><button class="btn primary" @click="addOlt()" x-show="db.permissions.manage"><i data-lucide="plus"></i>Tambah OLT</button></div></div>
             <div class="olt-toolbar"><div class="filter-tabs" role="group" aria-label="Filter status OLT"><button :class="{selected:statusFilter==='all'}" @click="statusFilter='all'" :aria-pressed="statusFilter==='all'">Semua OLT<span x-text="db.olts.length"></span></button><button :class="{selected:statusFilter==='Online'}" @click="statusFilter='Online'" :aria-pressed="statusFilter==='Online'"><span class="dot green"></span>Online<span x-text="onlineOlts.length"></span></button><button :class="{selected:statusFilter==='Offline'}" @click="statusFilter='Offline'" :aria-pressed="statusFilter==='Offline'"><span class="dot gray"></span>Offline<span x-text="db.olts.length-onlineOlts.length"></span></button></div><label class="sort-label">Urutkan:<select x-model="sort"><option value="default">Urutan perangkat</option><option value="name">Nama A–Z</option><option value="onu">ONU terbanyak</option></select></label></div>
             <div class="olt-grid">
                 <template x-for="(olt,cardIndex) in visibleOlts" :key="olt.id">
@@ -111,7 +111,7 @@
             <div class="grid-caption"><span>Menampilkan <strong x-text="visibleOlts.length"></strong> dari <span x-text="db.olts.length"></span> perangkat</span><span><i data-lucide="lock-keyhole"></i>Data terisolasi untuk <span x-text="db.tenant.name"></span></span></div>
         </section>
         <section class="quota-banner" x-show="db.subscription" aria-label="Kuota langganan OLT">
-            <span class="quota-icon"><i data-lucide="layers-2"></i></span><div class="quota-plan"><strong>Paket <span x-text="db.tenant.plan_type"></span><span class="premium-label" x-show="db.tenant.plan_type==='Premium'">PREMIUM</span></strong><span class="muted small">Kelola lebih banyak. Jangkau lebih luas.</span></div>
+            <span class="quota-icon"><i data-lucide="layers-2"></i></span><div class="quota-plan"><strong>Paket <span x-text="db.tenant.plan_type"></span><span class="premium-label" x-show="db.tenant.plan_type==='Premium'">PREMIUM</span></strong><span class="muted small">Alokasi kapasitas perangkat OLT workspace.</span></div>
             <div class="quota-details"><div><span class="muted small">Kapasitas paket</span><strong><span x-text="db.tenant.olt_quota"></span> OLT</strong></div><div><span class="muted small">Aktif hingga</span><strong x-text="expiry"></strong></div><div class="quota-usage"><div><span class="muted small">Kuota terpakai</span><strong><span x-text="db.olts.length"></span><span class="muted">/<span x-text="db.tenant.olt_quota"></span></span></strong></div><div class="progress-track"><span :style="'width:'+Math.min(100,db.olts.length/db.tenant.olt_quota*100)+'%'"></span></div></div></div>
             <button class="btn upgrade" @click="open('upgrade')" x-show="db.permissions.subscription"><i data-lucide="zap"></i>Upgrade<i data-lucide="arrow-up-right"></i></button>
         </section>

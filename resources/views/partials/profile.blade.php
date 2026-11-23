@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Profil Anda</span>
             </div>
-            <h1>Profil &amp; Keamanan Akun<span class="title-dot"></span></h1>
+            <h1>Profil &amp; Keamanan Akun</h1>
             <p class="muted">Perbarui identitas akun, username login, dan kata sandi akses workspace Anda.</p>
         </div>
     </div>

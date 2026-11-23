@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Tags Pelanggan</span>
             </div>
-            <h1>Tags Pelanggan<span class="title-dot"></span></h1>
+            <h1>Tags Pelanggan</h1>
             <p class="muted">Kelompokkan pelanggan dengan tag, lalu gunakan pada pencarian global, tabel ONU, atau pemantauan listrik.</p>
         </div>
         <div class="power-page-actions">

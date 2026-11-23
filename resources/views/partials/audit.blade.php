@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Audit Aktivitas</span>
             </div>
-            <h1>Audit Aktivitas<span class="title-dot"></span></h1>
+            <h1>Audit Aktivitas</h1>
             <p class="muted">Riwayat aktivitas workspace, termasuk perubahan perangkat, reboot, Tags, dan Staff. Waktu dalam WIB.</p>
         </div>
         <div class="power-page-actions">

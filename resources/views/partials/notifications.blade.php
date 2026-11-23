@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span x-text="notificationTab==='telegram' ? 'Notifikasi Telegram' : 'Notifikasi WhatsApp'"></span>
             </div>
-            <h1><span x-text="notificationTab==='telegram' ? 'Notifikasi Telegram' : 'Notifikasi WhatsApp'"></span><span class="title-dot"></span></h1>
+            <h1><span x-text="notificationTab==='telegram' ? 'Notifikasi Telegram' : 'Notifikasi WhatsApp'"></span></h1>
             <p class="muted">Kirim alert otomatis saat ONU terkena LOSS, mati listrik, redaman memburuk, atau kembali online.</p>
         </div>
         <div class="power-page-actions">

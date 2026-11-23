@@ -17,7 +17,7 @@
                     <span x-text="activePowerGroupLabel()"></span>
                 </template>
             </div>
-            <h1>Monitoring ONU<span class="title-dot"></span></h1>
+            <h1>Monitoring ONU</h1>
             <p class="muted">Pemantauan IP &amp; live status ONU per kategori (contoh: Listrik, Backbone, VIP) dengan Ping otomatis dan Double Check OLT.</p>
         </div>
         <div class="power-page-actions" x-show="db.permissions.operate">

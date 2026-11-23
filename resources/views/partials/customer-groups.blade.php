@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Grup Pelanggan</span>
             </div>
-            <h1>Grup Pelanggan<span class="title-dot"></span></h1>
+            <h1>Grup Pelanggan</h1>
             <p class="muted">Pengelompokan pelanggan otomatis berdasarkan nomor VLAN OLT dan/atau kata kunci nama ONU (contoh: Simaya Starbiz VLAN 97, LocalLoop berdasarkan nama ONU).</p>
         </div>
         <div class="power-page-actions" x-show="db.permissions.operate">

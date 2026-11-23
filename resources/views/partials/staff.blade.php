@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Staff Workspace</span>
             </div>
-            <h1>Staff &amp; Hak Akses<span class="title-dot"></span></h1>
+            <h1>Staff &amp; Hak Akses</h1>
             <p class="muted">Kelola akun dan role anggota workspace sesuai tanggung jawab operasional tim.</p>
         </div>
         <div class="power-page-actions">

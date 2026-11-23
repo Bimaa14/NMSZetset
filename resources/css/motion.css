@@ -1,36 +1,15 @@
-/* Short, compositor-friendly motion; no scroll handlers or animation runtime. */
+/* Crisp operational micro-interactions; no staggered marketing entry animations. */
 :root {
     --motion-ease: cubic-bezier(.22, 1, .36, 1);
-    --motion-fast: 160ms;
+    --motion-fast: 150ms;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    /* Avoid moving both a container and its metric cards on initial render. */
-    .overview-stack { animation: none; }
-    .equipment-stat { animation-duration: 480ms; animation-timing-function: var(--motion-ease); }
-    .olt-card {
-        animation-timing-function: var(--motion-ease);
-        /* Release transform after entry so the existing hover lift can work. */
-        animation-fill-mode: backwards;
-    }
-
-    .search-section,
-    .section-heading,
-    .olt-toolbar,
-    .quota-banner {
-        animation: workspace-rise 460ms var(--motion-ease) backwards;
-    }
-    .search-section { animation-delay: 100ms; }
-    .section-heading { animation-delay: 140ms; }
-    .olt-toolbar { animation-delay: 180ms; }
-    .quota-banner { animation-delay: 220ms; }
-
     .search-results,
-    .onu-fleet-overview,
     .onu-tool-preview,
     .inline-editor,
     .onu-inspector-body > [role=tabpanel] {
-        animation: workspace-rise 240ms var(--motion-ease) backwards;
+        animation: panel-fade 140ms ease-out backwards;
     }
 
     .nav-item,
@@ -45,28 +24,22 @@
             border-color var(--motion-fast) ease;
     }
 
-    .btn > svg,
-    .nav-item > svg,
     .detail-link > svg {
-        transition: translate 200ms var(--motion-ease);
+        transition: translate 160ms var(--motion-ease);
     }
-    .btn:active:not(:disabled) { transform: translateY(1px) scale(.985); }
-    .icon-button:active:not(:disabled) { scale: .94; }
-    .icon-button { transition: background-color 180ms, color 180ms, scale 160ms; }
-    .global-search { transition: border-color 180ms, box-shadow 180ms; }
-    .equipment-stat { transition: border-color 180ms; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .icon-button { transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease; }
+    .global-search { transition: border-color 150ms ease, box-shadow 150ms ease; }
+    .equipment-stat { transition: border-color 150ms ease, background-color 150ms ease; }
 
     @media (hover: hover) and (pointer: fine) {
-        .nav-item:hover > svg { translate: 2px 0; }
-        .btn.primary:hover:not(:disabled) > svg:last-child,
         .detail-link:hover > svg { translate: 2px 0; }
-        .equipment-stat:hover { border-color: color-mix(in srgb, var(--cyan) 35%, var(--line)); }
     }
 }
 
-@keyframes workspace-rise {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes panel-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Pause decorative loaders when the browser marks their surface hidden. */

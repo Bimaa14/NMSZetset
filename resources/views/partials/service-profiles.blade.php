@@ -6,7 +6,7 @@
                 <i data-lucide="chevron-right"></i>
                 <span>Profil Layanan</span>
             </div>
-            <h1>Profil Layanan OLT<span class="title-dot"></span></h1>
+            <h1>Profil Layanan OLT</h1>
             <p class="muted">Profil menggunakan nama tipe ONU, bandwidth, VLAN, dan WAN profile yang tersedia pada OLT. Kelola profil sebelum memasang pelanggan.</p>
         </div>
         <div class="power-page-actions">

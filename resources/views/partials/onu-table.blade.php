@@ -1,7 +1,7 @@
 <template x-if="['onus','degradation'].includes(modal)">
     <div class="onu-workspace">
         <div class="onu-fleet-overview">
-            <div class="onu-fleet-intro"><span class="onu-fleet-icon"><i data-lucide="network"></i></span><div><span class="eyebrow">CONNECTION OVERVIEW</span><h3>Setiap koneksi, dalam satu pandangan.</h3><p>Ringkasan OLT dan PON yang dipilih.</p></div></div>
+            <div class="onu-fleet-intro"><span class="onu-fleet-icon"><i data-lucide="network"></i></span><div><span class="eyebrow">RINGKASAN KONEKSI</span><h3>Status Koneksi ONU</h3><p>Ringkasan OLT dan PON yang dipilih.</p></div></div>
             <div class="onu-health-track"><div><span>ONU online</span><strong x-text="onuScopeSummary.percent+'%'"></strong></div><span class="onu-health-rail"><span :style="'width:'+onuScopeSummary.percent+'%'"></span></span></div>
             <div class="onu-fleet-metrics">
                 <div><span>Total ONU</span><strong x-text="onuScopeSummary.total"></strong><small>Perangkat terdaftar</small></div>
@@ -23,7 +23,7 @@
         </div>
         <div class="module-toolbar onu-directory-tools"><div class="onu-quick-filters" role="group" aria-label="Status cepat"><button @click="onuStatus='all'" :aria-pressed="onuStatus==='all'">Semua</button><button @click="onuStatus='working'" :aria-pressed="onuStatus==='working'"><span class="dot green"></span>Online</button><button x-show="!isYotc(selected)" @click="onuStatus='los'" :aria-pressed="onuStatus==='los'"><span class="dot red"></span>LOS</button></div><button class="btn secondary" @click="columnsOpen=!columnsOpen" :aria-expanded="columnsOpen"><i data-lucide="columns-3"></i>Kolom</button><button class="btn secondary" @click="exportOnus()"><i data-lucide="download"></i>Ekspor CSV</button><label>Baris<select x-model.number="onuPageSize"><option :value="25">25</option><option :value="50">50</option></select></label></div>
         <div class="inline-editor tag-checkboxes" x-show="columnsOpen"><template x-for="column in [{key:'status',name:'Status'},{key:'rx',name:'Redaman ONT'},{key:'last_online',name:'Terakhir online'},{key:'serial',name:'Serial'},{key:'traffic',name:'Traffic'},{key:'description',name:'Deskripsi'},{key:'pppoe',name:'PPPoE'},{key:'vlan',name:'VLAN'},{key:'tags',name:'Tags'}]" :key="column.key"><label x-show="column.key!=='traffic'||onuTrafficAvailable()"><input type="checkbox" :checked="columnVisible(column.key)" @change="toggleColumn(column.key)"><span x-text="column.name"></span></label></template></div>
-        <div class="signal-legend"><span class="green-text">● Normal ≥ -25 dBm</span><span class="amber-text">● Waspada > -27 dBm</span><span class="red-text">● Buruk &le; -27 dBm</span></div>
+        <div class="signal-legend"><span class="green-text"><span class="dot green"></span>Normal &ge; -25 dBm</span><span class="amber-text"><span class="dot amber"></span>Waspada &gt; -27 dBm</span><span class="red-text"><span class="dot red"></span>Buruk &le; -27 dBm</span></div>
         <template x-if="tagOnu">
             <form id="onu-tag-editor" tabindex="-1" class="inline-editor" @submit.prevent="saveOnuTags()">
                 <strong>Tags · <span x-text="tagOnu.name"></span></strong>
