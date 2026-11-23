@@ -125,8 +125,8 @@ class DashboardController extends Controller
             'audit' => (! $compact && $user->allows('audit')) ? AuditLog::where('tenant_id', $tenant->id)->latest('id')->limit(100)->get() : [],
             'subscription' => (bool) config('nms.subscription'),
             'demo' => app()->environment('local') && config('nms.demo'),
-            'equipment_updated_at' => $lastSync ? $lastSync->timezone('Asia/Jakarta')->format('H.i').' WIB' : 'belum tersedia',
-            'optical_calculated_at' => $opticalTime ? \Illuminate\Support\Carbon::parse($opticalTime)->timezone('Asia/Jakarta')->format('H.i').' WIB' : 'belum tersedia',
+            'equipment_updated_at' => $lastSync ? $lastSync->timezone('Asia/Jakarta')->format('H.i').' WIB' : '—',
+            'optical_calculated_at' => $opticalTime ? \Illuminate\Support\Carbon::parse($opticalTime)->timezone('Asia/Jakarta')->format('H.i').' WIB' : '—',
             'threshold' => config('nms.bad_rx_threshold'),
         ];
     }

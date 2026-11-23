@@ -109,7 +109,7 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BVbK9E-F.js",
+    "file": "assets/app-DeqLe8Gh.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -143,7 +143,7 @@
     ]
   },
   "resources/js/traffic-chart.js": {
-    "file": "assets/traffic-chart-DHhtpjiS.js",
+    "file": "assets/traffic-chart-eayJaylN.js",
     "name": "traffic-chart",
     "src": "resources/js/traffic-chart.js",
     "isDynamicEntry": true,

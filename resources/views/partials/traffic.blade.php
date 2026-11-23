@@ -25,7 +25,7 @@
         <label class="traffic-scrubber" x-show="trafficData?.points.length">Pilih titik waktu<input type="range" min="0" :max="Math.max(0,(trafficData?.points.length||1)-1)" step="1" x-model.number="trafficHover" @input="trafficFocusPoint()" aria-label="Pilih sampel traffic"></label>
         <p class="traffic-tooltip" x-show="trafficData?.points.length"><span x-text="trafficPoint().recorded_at?dateTime(trafficPoint().recorded_at):''"></span> &middot; Download <span x-text="trafficUnit(trafficPoint().rx_bps)"></span> &middot; Upload <span x-text="trafficUnit(trafficPoint().tx_bps)"></span></p>
         <div class="traffic-volume" x-show="trafficData?.volume_supported!==false"><template x-for="direction in ['rx','tx']" :key="direction"><p><span x-text="direction==='rx'?'Volume download':'Volume upload'"></span><strong x-text="trafficUnit(trafficData?.statistics[direction].volume_bytes,true)"></strong><small x-text="'Durasi terukur '+Math.round((trafficData?.statistics[direction].covered_seconds||0)/60)+' menit'"></small></p></template></div>
-        <p class="small muted" x-show="trafficData?.volume_supported===false" x-text="trafficData?.volume_note||'Volume belum tersedia untuk perangkat ini.'"></p>
-        <p class="small muted" x-show="trafficData?.volume_supported!==false">Volume hanya mencakup interval terukur. Jeda lebih dari 10 menit tidak dijembatani. Ekspor CSV berisi titik grafik yang diringkas sesuai rentang; statistik memakai seluruh sampel.</p>
+        <p class="small muted" x-show="trafficData?.volume_supported===false" x-text="trafficData?.volume_note||'Perangkat ini menampilkan laju traffic real-time (bps).'"></p>
+        <p class="small muted" x-show="trafficData?.volume_supported!==false">Volume dihitung berdasarkan interval sampel yang terukur. Ekspor CSV menyediakan data sesuai rentang waktu yang dipilih.</p>
     </div>
 </dialog>

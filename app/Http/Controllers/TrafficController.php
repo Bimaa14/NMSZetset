@@ -34,7 +34,7 @@ class TrafficController extends Controller
         $data['volume_supported']=$entity->olt->chassis_type!=='C1600'||$kind==='onus';
         if(!$data['volume_supported']) {
             $data['chart_baseline']=null;
-            $data['volume_note']='C1600 menyediakan laju traffic langsung. Arti counter octet belum terverifikasi, sehingga volume tidak dihitung.';
+            $data['volume_note']='Perangkat C1600 menampilkan laju traffic real-time (bps) secara langsung.';
             foreach(['rx','tx'] as $direction) { $data['statistics'][$direction]['volume_bytes']=null; $data['statistics'][$direction]['covered_seconds']=0; }
         }
         return response()->json($data)->header('Cache-Control','no-store');
