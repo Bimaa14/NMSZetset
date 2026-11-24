@@ -214,6 +214,8 @@ class PowerMonitorController extends Controller
             'power_telegram_chat_id' => ['nullable', 'string', 'max:255'],
             'power_telegram_thread_id' => ['nullable', 'string', 'max:64'],
             'power_cooldown_minutes' => ['required', 'integer', 'min:0', 'max:1440'],
+            'power_down_template' => ['nullable', 'string', 'max:3000'],
+            'power_up_template' => ['nullable', 'string', 'max:3000'],
         ]);
 
         $setting->update([
@@ -222,6 +224,8 @@ class PowerMonitorController extends Controller
             'power_telegram_chat_id' => trim((string) ($data['power_telegram_chat_id'] ?? '')) ?: null,
             'power_telegram_thread_id' => trim((string) ($data['power_telegram_thread_id'] ?? '')) ?: null,
             'power_cooldown_minutes' => (int) $data['power_cooldown_minutes'],
+            'power_down_template' => trim((string) ($data['power_down_template'] ?? '')) ?: null,
+            'power_up_template' => trim((string) ($data['power_up_template'] ?? '')) ?: null,
         ]);
 
         $audit->record($request, 'power.settings.update', 'Alert Monitoring ONU');
@@ -240,6 +244,8 @@ class PowerMonitorController extends Controller
             'power_whatsapp_recipients' => ['nullable', 'string', 'max:1000'],
             'power_telegram_chat_id' => ['nullable', 'string', 'max:255'],
             'power_telegram_thread_id' => ['nullable', 'string', 'max:64'],
+            'power_down_template' => ['nullable', 'string', 'max:3000'],
+            'power_up_template' => ['nullable', 'string', 'max:3000'],
         ]);
 
         $setting = NotificationSetting::forTenant($tenantId);
@@ -251,6 +257,12 @@ class PowerMonitorController extends Controller
         }
         if (array_key_exists('power_telegram_thread_id', $data)) {
             $setting->power_telegram_thread_id = trim((string) $data['power_telegram_thread_id']) ?: null;
+        }
+        if (array_key_exists('power_down_template', $data)) {
+            $setting->power_down_template = trim((string) $data['power_down_template']) ?: null;
+        }
+        if (array_key_exists('power_up_template', $data)) {
+            $setting->power_up_template = trim((string) $data['power_up_template']) ?: null;
         }
 
         try {
@@ -287,6 +299,8 @@ class PowerMonitorController extends Controller
             'whatsapp_recipients' => ['nullable', 'string', 'max:500'],
             'telegram_chat_id' => ['nullable', 'string', 'max:255'],
             'telegram_thread_id' => ['nullable', 'string', 'max:64'],
+            'down_message_template' => ['nullable', 'string', 'max:3000'],
+            'up_message_template' => ['nullable', 'string', 'max:3000'],
         ]);
 
         return [
@@ -296,6 +310,8 @@ class PowerMonitorController extends Controller
             'whatsapp_recipients' => trim((string) ($data['whatsapp_recipients'] ?? '')) ?: null,
             'telegram_chat_id' => trim((string) ($data['telegram_chat_id'] ?? '')) ?: null,
             'telegram_thread_id' => trim((string) ($data['telegram_thread_id'] ?? '')) ?: null,
+            'down_message_template' => trim((string) ($data['down_message_template'] ?? '')) ?: null,
+            'up_message_template' => trim((string) ($data['up_message_template'] ?? '')) ?: null,
         ];
     }
 
@@ -428,6 +444,8 @@ class PowerMonitorController extends Controller
                 'whatsapp_recipients' => $g->whatsapp_recipients ?? '',
                 'telegram_chat_id' => $g->telegram_chat_id ?? '',
                 'telegram_thread_id' => $g->telegram_thread_id ?? '',
+                'down_message_template' => $g->down_message_template ?? '',
+                'up_message_template' => $g->up_message_template ?? '',
                 'total' => $total,
                 'up' => $up,
                 'warning' => $warning,
@@ -472,6 +490,8 @@ class PowerMonitorController extends Controller
                 'power_telegram_chat_id' => $setting->power_telegram_chat_id ?? '',
                 'power_telegram_thread_id' => $setting->power_telegram_thread_id ?? '',
                 'power_cooldown_minutes' => (int) ($setting->power_cooldown_minutes ?? 5),
+                'power_down_template' => $setting->power_down_template ?? '',
+                'power_up_template' => $setting->power_up_template ?? '',
                 'has_gateway' => $hasGateway,
                 'default_whatsapp_recipients' => $setting->whatsapp_recipients ?? '',
                 'default_telegram_chat_id' => $setting->telegram_chat_id ?? '',

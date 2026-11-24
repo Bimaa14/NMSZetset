@@ -40,7 +40,9 @@ export function workspaceModules(){return {
     customerGroupForm:null,groupKeywordPreview:{loading:false,total:0,term:'',samples:[]},groupKeywordPreviewSeq:0,selectedGroupFilter:'all',groupOnus:{data:[],total:0,current_page:1,last_page:1},groupOnuQuery:'',groupOnuOlt:'all',groupOnuStatus:'all',groupOnuLoading:false,groupOnuRequest:0,groupSyncing:false,vlanChipsOpen:false,vlanChipSearch:'',
     activePage:({'#monitoring-onu':'power','#listrik':'power','#grup-pelanggan':'groups','#whatsapp':'whatsapp','#telegram':'telegram','#profil':'profile','#api':'api','#profil-layanan':'profiles','#tags':'tags','#staff':'staff','#audit':'audit'})[window.location.hash]||'dashboard',
     powerTab:'monitors',selectedPowerGroup:'',powerGroupForm:null,powerForm:null,powerOnuOptions:[],powerOnuSearch:'',powerFilter:{q:'',group:'all',status:'all'},powerChecking:false,powerCheckingId:null,
-    powerSettingsForm:{power_notify_enabled:true,power_whatsapp_recipients:'',power_telegram_chat_id:'',power_telegram_thread_id:'',power_cooldown_minutes:5},
+    powerSettingsForm:{power_notify_enabled:true,power_whatsapp_recipients:'',power_telegram_chat_id:'',power_telegram_thread_id:'',power_cooldown_minutes:5,power_down_template:'',power_up_template:''},
+    powerActiveTemplateField:'down',
+    powerTemplateTokens:['{nama}','{kategori}','{KATEGORI}','{area}','{ip}','{onu}','{sn}','{olt}','{port}','{state}','{status}','{alasan}','{latency}','{durasi}','{waktu}'],
     ftth:{nodes:[],assignments:[]},nodeForm:null,mapOlt:'all',assignmentForm:{node_id:'',onu_id:'',port_number:1},
     pageFromHash(hash){return ({'#monitoring-onu':'power','#listrik':'power','#grup-pelanggan':'groups','#whatsapp':'whatsapp','#telegram':'telegram','#profil':'profile','#api':'api','#profil-layanan':'profiles','#tags':'tags','#staff':'staff','#audit':'audit'})[hash]||'dashboard';},
     pageLabel(){return ({dashboard:'Overview',power:'Monitoring ONU',groups:'Grup Pelanggan',whatsapp:'WhatsApp',telegram:'Telegram',profile:'Profil Anda',api:'Open API',profiles:'Profil Layanan',tags:'Tags Pelanggan',staff:'Staff Workspace',audit:'Audit Aktivitas'})[this.activePage]||'Overview';},
@@ -163,20 +165,76 @@ export function workspaceModules(){return {
     applyPowerPayload(data){
         this.powerData={monitors:data.monitors||[],monitor_groups:data.monitor_groups||[],ungrouped_count:data.ungrouped_count||0,groups:data.groups||[],summary:data.summary||{total:0,up:0,warning:0,down:0,unknown:0,avg_latency_ms:null},settings:data.settings||null,logs:data.logs||[]};
         if(this.selectedPowerGroup&&!['all','ungrouped'].includes(this.selectedPowerGroup)&&!(this.powerData.monitor_groups||[]).some(g=>String(g.id)===this.selectedPowerGroup)){this.selectedPowerGroup='';}
-        if(data.settings)this.powerSettingsForm={power_notify_enabled:!!data.settings.power_notify_enabled,power_whatsapp_recipients:data.settings.power_whatsapp_recipients||'',power_telegram_chat_id:data.settings.power_telegram_chat_id||'',power_telegram_thread_id:data.settings.power_telegram_thread_id||'',power_cooldown_minutes:Number(data.settings.power_cooldown_minutes??5)};
+        if(data.settings)this.powerSettingsForm={power_notify_enabled:!!data.settings.power_notify_enabled,power_whatsapp_recipients:data.settings.power_whatsapp_recipients||'',power_telegram_chat_id:data.settings.power_telegram_chat_id||'',power_telegram_thread_id:data.settings.power_telegram_thread_id||'',power_cooldown_minutes:Number(data.settings.power_cooldown_minutes??5),power_down_template:data.settings.power_down_template||'',power_up_template:data.settings.power_up_template||''};
+    },
+    defaultPowerTemplate(kind='down',categoryName='Listrik'){
+        const cat=(categoryName||'Listrik').trim()||'Listrik';
+        const isPower=/listrik|pln|power/i.test(cat);
+        if(kind==='down'){
+            const header=isPower?'⚡ *[MONITORING {KATEGORI}] PLN / LISTRIK PADAM*':'🚨 *[MONITORING {KATEGORI}] PERANGKAT OFFLINE / DOWN*';
+            return [header,'','• Lokasi / Perangkat: *{nama}*','• Kategori: {kategori}','• Area: {area}','• Target IP: `{ip}`','• Sensor ONU: {onu} (`{sn}`)','• OLT / Port: {olt} (`{port}`) · State: *{state}*','• Status: *{status}*','• Hasil Cek: {alasan}','• Waktu: {waktu}'].join('\n');
+        }
+        const header=isPower?'✅ *[MONITORING {KATEGORI}] LISTRIK MENYALA KEMBALI*':'✅ *[MONITORING {KATEGORI}] PERANGKAT ONLINE KEMBALI*';
+        const durLabel=isPower?'• Durasi Padam: {durasi}':'• Durasi Gangguan: {durasi}';
+        return [header,'','• Lokasi / Perangkat: *{nama}*','• Kategori: {kategori}','• Area: {area}','• Target IP: `{ip}`','• Sensor ONU: {onu} (`{sn}`)','• OLT / Port: {olt} (`{port}`) · State: *{state}*','• Status: *{status}*',durLabel,'• Waktu: {waktu}'].join('\n');
+    },
+    fillDefaultGroupTemplates(){
+        if(!this.powerGroupForm)return;
+        const cat=this.powerGroupForm.name||'Listrik';
+        this.powerGroupForm.down_message_template=this.defaultPowerTemplate('down',cat);
+        this.powerGroupForm.up_message_template=this.defaultPowerTemplate('up',cat);
+    },
+    fillDefaultGlobalPowerTemplates(){
+        if(!this.powerSettingsForm)return;
+        this.powerSettingsForm.power_down_template=this.defaultPowerTemplate('down','Listrik');
+        this.powerSettingsForm.power_up_template=this.defaultPowerTemplate('up','Listrik');
+    },
+    insertPowerToken(target,downKey,upKey,token){
+        if(!target)return;
+        const key=this.powerActiveTemplateField==='up'?upKey:downKey;
+        const cur=target[key]||'';
+        target[key]=cur+(cur&&!cur.endsWith(' ')&&!cur.endsWith('\n')?' ':'')+token;
+    },
+    previewPowerTemplate(tpl,kind='down',categoryName='Listrik'){
+        const cat=(categoryName||'Listrik').trim()||'Listrik';
+        const isPower=/listrik|pln|power/i.test(cat);
+        const text=(tpl||'').trim()||this.defaultPowerTemplate(kind,cat);
+        const sample={
+            nama:isPower?'PLN POP-01 Utama':'SITE-'+(cat.toUpperCase()),
+            perangkat:isPower?'PLN POP-01 Utama':'SITE-'+(cat.toUpperCase()),
+            kategori:cat,
+            KATEGORI:cat.toUpperCase(),
+            group:cat,
+            area:'POP Pusat',
+            lokasi:'POP Pusat',
+            ip:'10.10.99.10',
+            target:'10.10.99.10',
+            onu:'ONU-'+(cat.toUpperCase())+'-01',
+            sn:'ZTEGC0FFEE01',
+            olt:'OLT-PUSAT',
+            port:'gpon-onu_1/2/1:3',
+            state:kind==='down'?'DYING-GASP':'WORKING',
+            status:kind==='down'?(isPower?'PADAM / OFFLINE':'OFFLINE / DOWN'):(isPower?'MENYALA KEMBALI (UP) (Ping: 2.45 ms)':'ONLINE KEMBALI (UP) (Ping: 2.45 ms)'),
+            alasan:kind==='down'?'Ping RTO (100% loss) + ONU DYING-GASP':'ONU Kembali Working',
+            hasil_cek:kind==='down'?'Ping RTO (100% loss) + ONU DYING-GASP':'ONU Kembali Working',
+            latency:'2.45 ms',
+            durasi:'14 menit 20 detik',
+            waktu:'24 Nov 2026 19:35:00 WIB',
+        };
+        return text.replace(/\{([a-zA-Z0-9_]+)\}/g,(m,k)=>Object.hasOwn(sample,k)?sample[k]:m);
     },
     openPowerGroup(key){this.selectedPowerGroup=String(key);this.powerFilter={q:'',group:'all',status:'all'};},
     closePowerGroup(){this.selectedPowerGroup='';this.powerFilter={q:'',group:'all',status:'all'};},
     activePowerGroupObj(){if(!this.selectedPowerGroup||['all','ungrouped'].includes(this.selectedPowerGroup))return null;return (this.powerData.monitor_groups||[]).find(g=>String(g.id)===this.selectedPowerGroup)||null;},
     activePowerGroupLabel(){if(this.selectedPowerGroup==='all')return 'Semua Target';if(this.selectedPowerGroup==='ungrouped')return 'Tanpa Kategori';return this.activePowerGroupObj()?.name||'Monitoring ONU';},
-    newPowerGroup(){this.error='';this.validationErrors={};const palette=['#f59e0b','#10b981','#38bdf8','#a855f7','#ec4899'];const nextColor=palette[(this.powerData.monitor_groups||[]).length%palette.length];this.powerGroupForm={id:null,name:'',color_hex:nextColor,description:'',whatsapp_recipients:'',telegram_chat_id:'',telegram_thread_id:''};this.open('power-group-form');},
-    editPowerGroup(g){if(!g)return;this.error='';this.validationErrors={};this.powerGroupForm={id:g.id,name:g.name,color_hex:g.color_hex||'#f59e0b',description:g.description||'',whatsapp_recipients:g.whatsapp_recipients||'',telegram_chat_id:g.telegram_chat_id||'',telegram_thread_id:g.telegram_thread_id||''};this.open('power-group-form');},
+    newPowerGroup(){this.error='';this.validationErrors={};this.powerActiveTemplateField='down';const palette=['#f59e0b','#10b981','#38bdf8','#a855f7','#ec4899'];const nextColor=palette[(this.powerData.monitor_groups||[]).length%palette.length];this.powerGroupForm={id:null,name:'',color_hex:nextColor,description:'',whatsapp_recipients:'',telegram_chat_id:'',telegram_thread_id:'',down_message_template:'',up_message_template:''};this.open('power-group-form');},
+    editPowerGroup(g){if(!g)return;this.error='';this.validationErrors={};this.powerActiveTemplateField='down';this.powerGroupForm={id:g.id,name:g.name,color_hex:g.color_hex||'#f59e0b',description:g.description||'',whatsapp_recipients:g.whatsapp_recipients||'',telegram_chat_id:g.telegram_chat_id||'',telegram_thread_id:g.telegram_thread_id||'',down_message_template:g.down_message_template||'',up_message_template:g.up_message_template||''};this.open('power-group-form');},
     async savePowerGroup(){
         if(this.busy||!this.powerGroupForm)return;
         this.busy=true;this.error='';this.validationErrors={};
         try{
             const p=this.powerGroupForm;
-            const data=await this.request(p.id?'/power-monitors/groups/'+p.id:'/power-monitors/groups',p.id?'PUT':'POST',{name:p.name,color_hex:p.color_hex,description:p.description||null,whatsapp_recipients:p.whatsapp_recipients||null,telegram_chat_id:p.telegram_chat_id||null,telegram_thread_id:p.telegram_thread_id||null});
+            const data=await this.request(p.id?'/power-monitors/groups/'+p.id:'/power-monitors/groups',p.id?'PUT':'POST',{name:p.name,color_hex:p.color_hex,description:p.description||null,whatsapp_recipients:p.whatsapp_recipients||null,telegram_chat_id:p.telegram_chat_id||null,telegram_thread_id:p.telegram_thread_id||null,down_message_template:p.down_message_template||null,up_message_template:p.up_message_template||null});
             this.applyPowerPayload(data);
             this.busy=false;this.closeModal();
             this.notify(data.message);

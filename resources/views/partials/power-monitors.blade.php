@@ -124,9 +124,10 @@
                                     <button type="button" class="icon-button red-text" @click.stop="deletePowerGroup(g)" title="Hapus kategori"><i data-lucide="trash-2"></i></button>
                                 </div>
                             </div>
-                            <div class="group-vlan-pills" x-show="g.whatsapp_recipients || g.telegram_chat_id">
+                            <div class="group-vlan-pills" x-show="g.whatsapp_recipients || g.telegram_chat_id || g.down_message_template || g.up_message_template">
                                 <span class="power-sn-pill mono" x-show="g.whatsapp_recipients" x-text="'WA: ' + g.whatsapp_recipients"></span>
                                 <span class="group-keyword-pill mono" x-show="g.telegram_chat_id" x-text="'TG: ' + g.telegram_chat_id"></span>
+                                <span class="tag" x-show="g.down_message_template || g.up_message_template">Redaksi Custom</span>
                             </div>
                             <div class="group-metrics">
                                 <div>
@@ -219,8 +220,8 @@
                                 <span class="power-filter-count" x-text="powerData.summary.total ?? 0"></span>
                             </button>
                         </div>
-                        <button type="button" class="icon-button" x-show="db.permissions.operate && activePowerGroupObj()" @click="editPowerGroup(activePowerGroupObj())" title="Edit kategori ini">
-                            <i data-lucide="pencil"></i>
+                        <button type="button" class="btn secondary power-back-btn" x-show="db.permissions.operate && activePowerGroupObj()" @click="editPowerGroup(activePowerGroupObj())" title="Edit kategori & redaksi pesan">
+                            <i data-lucide="pencil"></i><span>Edit &amp; Redaksi</span>
                         </button>
                     </div>
                 </div>
@@ -388,6 +389,47 @@
                     <input type="number" min="0" max="1440" x-model.number="powerSettingsForm.power_cooldown_minutes" required>
                 </label>
             </div>
+
+            <div class="power-redaksi-box">
+                <div class="power-redaksi-head">
+                    <div>
+                        <strong>Custom Redaksi Pesan Alert Default (WA &amp; Telegram)</strong>
+                        <p class="muted small">Atur format teks pesan saat terjadi gangguan (DOWN) dan saat pulih kembali (UP). Anda juga dapat membuat redaksi berbeda untuk tiap kategori melalui tombol <strong>Edit</strong> pada kotak kategori (misal: Listrik vs ERABLUE).</p>
+                    </div>
+                    <div class="power-redaksi-actions">
+                        <button type="button" class="btn secondary vlan-toggle-btn" @click="fillDefaultGlobalPowerTemplates()">Isi Template Standar</button>
+                        <button type="button" class="btn secondary vlan-toggle-btn" x-show="powerSettingsForm.power_down_template || powerSettingsForm.power_up_template" @click="powerSettingsForm.power_down_template='';powerSettingsForm.power_up_template=''">Reset Default</button>
+                    </div>
+                </div>
+
+                <div class="power-token-bar">
+                    <span class="muted small">Klik variabel untuk sisipkan:</span>
+                    <template x-for="tk in powerTemplateTokens" :key="'stk-'+tk">
+                        <button type="button" class="power-token-chip mono" @click="insertPowerToken(powerSettingsForm,'power_down_template','power_up_template',tk)" x-text="tk"></button>
+                    </template>
+                </div>
+
+                <div class="form-grid">
+                    <label>Redaksi Default Saat Gangguan / Padam (DOWN)
+                        <textarea class="mono power-redaksi-textarea" rows="8" maxlength="3000" x-model="powerSettingsForm.power_down_template" @focus="powerActiveTemplateField='down'" :placeholder="defaultPowerTemplate('down', 'Listrik')"></textarea>
+                    </label>
+                    <label>Redaksi Default Saat Pulih / Online Kembali (UP)
+                        <textarea class="mono power-redaksi-textarea" rows="8" maxlength="3000" x-model="powerSettingsForm.power_up_template" @focus="powerActiveTemplateField='up'" :placeholder="defaultPowerTemplate('up', 'Listrik')"></textarea>
+                    </label>
+                </div>
+
+                <div class="form-grid power-preview-grid">
+                    <div>
+                        <span class="muted small">Preview Pesan Gangguan (DOWN)</span>
+                        <pre class="power-preview-bubble mono" x-text="previewPowerTemplate(powerSettingsForm.power_down_template, 'down', 'Listrik')"></pre>
+                    </div>
+                    <div>
+                        <span class="muted small">Preview Pesan Pulih (UP)</span>
+                        <pre class="power-preview-bubble mono" x-text="previewPowerTemplate(powerSettingsForm.power_up_template, 'up', 'Listrik')"></pre>
+                    </div>
+                </div>
+            </div>
+
             <div class="modal-actions" style="margin-top:4px">
                 <button type="button" class="btn secondary" :disabled="busy" @click="testPowerAlert()">
                     <i data-lucide="send"></i><span>Kirim Tes Alert</span>

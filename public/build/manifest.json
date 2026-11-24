@@ -104,12 +104,12 @@
     "src": "node_modules/leaflet/dist/leaflet.css"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BiQwyIkT.css",
+    "file": "assets/app-DTPBhahv.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-DeqLe8Gh.js",
+    "file": "assets/app-ZTXuQEa9.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -143,7 +143,7 @@
     ]
   },
   "resources/js/traffic-chart.js": {
-    "file": "assets/traffic-chart-eayJaylN.js",
+    "file": "assets/traffic-chart-gcpZJtcG.js",
     "name": "traffic-chart",
     "src": "resources/js/traffic-chart.js",
     "isDynamicEntry": true,

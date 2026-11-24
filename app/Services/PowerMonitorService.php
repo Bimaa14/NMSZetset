@@ -319,23 +319,53 @@ class PowerMonitorService
 
     public function sendPowerTest(NotificationSetting $setting): array
     {
-        $sample = PowerMonitor::where('tenant_id', $setting->tenant_id)->orderBy('id')->first();
+        $sample = PowerMonitor::where('tenant_id', $setting->tenant_id)->with(['group', 'onu.port', 'onu.olt'])->orderBy('id')->first();
         $name = $sample?->name ?? 'MONITORING LISTRIK POP-01';
-        $group = $sample?->group_name ?? 'MONITORING-LISTRIK';
+        $group = $sample?->group?->name ?? $sample?->group_name ?? 'Listrik';
         $target = $sample?->ip_address ?? '10.10.99.10';
 
-        $message = implode("\n", [
-            '⚡ *[TES MONITORING LISTRIK] PLN / POWER ALERT*',
-            '',
-            "• Perangkat: *{$name}*",
-            "• Group: {$group}",
-            "• Target IP / ONU: `{$target}`",
-            '• Status: UP ➔ *PADAM (Simulasi Tes)*',
-            '• Double Check: Ping RTO + Status ONU DYING-GASP',
-            '• Waktu: '.now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB',
-            '',
-            '_Integrasi alert Monitoring Listrik LUMINA NMS aktif dan siap digunakan._',
-        ]);
+        $customTemplate = trim((string) ($setting->power_down_template ?: $sample?->group?->down_message_template ?: ''));
+        if ($customTemplate !== '') {
+            $port = $sample?->onu?->port;
+            $ifName = $port
+                ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $port->interface_name).':'.$sample->onu->onu_index
+                : 'gpon-onu_1/2/1:3';
+            $message = $this->renderCustomTemplate($customTemplate, [
+                'nama' => $name,
+                'perangkat' => $name,
+                'kategori' => $group,
+                'KATEGORI' => mb_strtoupper($group),
+                'group' => $group,
+                'area' => $sample?->location ?: 'POP Utama',
+                'lokasi' => $sample?->location ?: $name,
+                'ip' => $target,
+                'target' => $target,
+                'onu' => $sample?->onu?->name ?: 'ONU-SAMPLE',
+                'sn' => $sample?->onu?->sn ?: 'ZTEGC0FFEE01',
+                'olt' => $sample?->onu?->olt?->name ?: 'OLT-PUSAT',
+                'port' => $ifName,
+                'state' => 'DYING-GASP',
+                'status' => 'PADAM / OFFLINE (Simulasi Tes)',
+                'alasan' => 'Ping RTO + Status ONU DYING-GASP (Simulasi Tes)',
+                'hasil_cek' => 'Ping RTO + Status ONU DYING-GASP (Simulasi Tes)',
+                'latency' => '—',
+                'durasi' => '—',
+                'waktu' => now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB',
+            ]);
+        } else {
+            $message = implode("\n", [
+                '⚡ *[TES MONITORING LISTRIK] PLN / POWER ALERT*',
+                '',
+                "• Perangkat: *{$name}*",
+                "• Group: {$group}",
+                "• Target IP / ONU: `{$target}`",
+                '• Status: UP ➔ *PADAM (Simulasi Tes)*',
+                '• Double Check: Ping RTO + Status ONU DYING-GASP',
+                '• Waktu: '.now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB',
+                '',
+                '_Integrasi alert Monitoring Listrik LUMINA NMS aktif dan siap digunakan._',
+            ]);
+        }
 
         return $this->notifications->deliverPowerMessage($setting, $message, 'power_test', $sample?->whatsapp_recipients_override, null, null, $sample?->id, true);
     }
@@ -358,7 +388,7 @@ class PowerMonitorService
             }
 
             $monitor->loadMissing('group');
-            $message = $this->formatPowerMonitorMessage($monitor, $eventType, $reason, $durationText);
+            $message = $this->formatPowerMonitorMessage($monitor, $eventType, $reason, $durationText, $setting);
             $oltId ??= $monitor->onu?->olt_id;
             $onuId ??= $monitor->onu_id;
 
@@ -398,21 +428,53 @@ class PowerMonitorService
 
             $ifName = $port ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $port->interface_name).':'.$onu->onu_index : ('ONU #'.$onu->onu_index);
             $customer = ($onu->name && $onu->name !== $onu->sn) ? $onu->name : $onu->sn;
-            $header = $eventType === 'power_down'
-                ? '⚡ *[MONITORING LISTRIK] PLN / LISTRIK PADAM*'
-                : '✅ *[MONITORING LISTRIK] LISTRIK MENYALA KEMBALI*';
+            $nowWib = now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB';
 
-            $lines = [
-                $header,
-                '',
-                "• Sensor ONU: *{$customer}*",
-                "• OLT / Port: {$olt->name} (`{$ifName}`)",
-                "• Serial (SN): `{$onu->sn}`",
-                '• Status: '.strtoupper($oldPhase).' ➔ *'.strtoupper($newPhase).'*',
-                '• Waktu: '.now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB',
-            ];
+            $customTemplate = $eventType === 'power_down'
+                ? trim((string) ($setting->power_down_template ?? ''))
+                : trim((string) ($setting->power_up_template ?? ''));
 
-            $this->notifications->deliverPowerMessage($setting, implode("\n", $lines), $eventType, null, $olt->id, $onu->id, null);
+            if ($customTemplate !== '') {
+                $message = $this->renderCustomTemplate($customTemplate, [
+                    'nama' => $customer,
+                    'perangkat' => $customer,
+                    'kategori' => 'Listrik',
+                    'KATEGORI' => 'LISTRIK',
+                    'group' => 'Listrik',
+                    'area' => '',
+                    'lokasi' => $customer,
+                    'ip' => '',
+                    'target' => $customer,
+                    'onu' => $customer,
+                    'sn' => (string) $onu->sn,
+                    'olt' => (string) $olt->name,
+                    'port' => $ifName,
+                    'state' => strtoupper($newPhase),
+                    'status' => strtoupper($oldPhase).' ➔ '.strtoupper($newPhase),
+                    'alasan' => 'ONU '.strtoupper($newPhase),
+                    'hasil_cek' => 'ONU '.strtoupper($newPhase),
+                    'latency' => '',
+                    'durasi' => '',
+                    'waktu' => $nowWib,
+                ]);
+            } else {
+                $header = $eventType === 'power_down'
+                    ? '⚡ *[MONITORING LISTRIK] PLN / LISTRIK PADAM*'
+                    : '✅ *[MONITORING LISTRIK] LISTRIK MENYALA KEMBALI*';
+
+                $lines = [
+                    $header,
+                    '',
+                    "• Sensor ONU: *{$customer}*",
+                    "• OLT / Port: {$olt->name} (`{$ifName}`)",
+                    "• Serial (SN): `{$onu->sn}`",
+                    '• Status: '.strtoupper($oldPhase).' ➔ *'.strtoupper($newPhase).'*',
+                    "• Waktu: {$nowWib}",
+                ];
+                $message = implode("\n", $lines);
+            }
+
+            $this->notifications->deliverPowerMessage($setting, $message, $eventType, null, $olt->id, $onu->id, null);
         } catch (Throwable $e) {
             Log::warning('Power tag ONU notification failed', [
                 'onu_id' => $onu->id,
@@ -421,11 +483,53 @@ class PowerMonitorService
         }
     }
 
-    private function formatPowerMonitorMessage(PowerMonitor $monitor, string $eventType, string $reason, ?string $durationText): string
+    private function formatPowerMonitorMessage(PowerMonitor $monitor, string $eventType, string $reason, ?string $durationText, ?NotificationSetting $setting = null): string
     {
         $categoryName = trim((string) ($monitor->group?->name ?: $monitor->group_name ?: 'Listrik'));
         $isPowerCategory = (bool) preg_match('/listrik|pln|power/i', $categoryName);
         $upperCategory = mb_strtoupper($categoryName);
+        $nowWib = now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB';
+
+        $port = $monitor->onu?->port;
+        $ifName = $monitor->onu
+            ? ($port ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $port->interface_name).':'.$monitor->onu->onu_index : ('ONU #'.$monitor->onu->onu_index))
+            : '';
+        $oltName = $monitor->onu?->olt?->name ?? '';
+        $onuStateLabel = $monitor->onu ? strtoupper((string) ($monitor->onu->phase_state ?? 'unknown')) : '';
+        $latencyText = $monitor->last_latency_ms !== null ? number_format((float) $monitor->last_latency_ms, 2).' ms' : '';
+
+        $statusLabel = $eventType === 'power_down'
+            ? ($isPowerCategory ? 'PADAM / OFFLINE' : 'OFFLINE / DOWN')
+            : (($isPowerCategory ? 'MENYALA KEMBALI (UP)' : 'ONLINE KEMBALI (UP)').($latencyText !== '' ? " (Ping: {$latencyText})" : ''));
+
+        $customTemplate = $eventType === 'power_down'
+            ? trim((string) ($monitor->group?->down_message_template ?: $setting?->power_down_template ?: ''))
+            : trim((string) ($monitor->group?->up_message_template ?: $setting?->power_up_template ?: ''));
+
+        if ($customTemplate !== '') {
+            return $this->renderCustomTemplate($customTemplate, [
+                'nama' => (string) $monitor->name,
+                'perangkat' => (string) $monitor->name,
+                'kategori' => $categoryName,
+                'KATEGORI' => $upperCategory,
+                'group' => $categoryName,
+                'area' => (string) ($monitor->location ?? ''),
+                'lokasi' => (string) ($monitor->location ?: $monitor->name),
+                'ip' => (string) ($monitor->ip_address ?? ''),
+                'target' => (string) ($monitor->ip_address ?: ($monitor->onu?->name ?? $monitor->name)),
+                'onu' => (string) ($monitor->onu?->name ?? ''),
+                'sn' => (string) ($monitor->onu?->sn ?? ''),
+                'olt' => $oltName,
+                'port' => $ifName,
+                'state' => $onuStateLabel,
+                'status' => $statusLabel,
+                'alasan' => $reason,
+                'hasil_cek' => $reason,
+                'latency' => $latencyText,
+                'durasi' => (string) ($durationText ?? ''),
+                'waktu' => $nowWib,
+            ]);
+        }
 
         if ($isPowerCategory) {
             $header = $eventType === 'power_down'
@@ -451,28 +555,66 @@ class PowerMonitorService
             $lines[] = "• Target IP: `{$monitor->ip_address}`";
         }
         if ($monitor->onu) {
-            $port = $monitor->onu->port;
-            $ifName = $port ? str_replace(['gpon-olt_', 'epon-olt_'], ['gpon-onu_', 'epon-onu_'], $port->interface_name).':'.$monitor->onu->onu_index : ('ONU #'.$monitor->onu->onu_index);
-            $oltName = $monitor->onu->olt?->name ?? 'OLT';
-            $onuStateLabel = strtoupper((string) ($monitor->onu->phase_state ?? 'unknown'));
             $lines[] = "• Sensor ONU: {$monitor->onu->name} (`{$monitor->onu->sn}`)";
-            $lines[] = "• OLT / Port: {$oltName} (`{$ifName}`) · State: *{$onuStateLabel}*";
+            $lines[] = "• OLT / Port: ".($oltName ?: 'OLT')." (`{$ifName}`) · State: *{$onuStateLabel}*";
         }
 
         if ($eventType === 'power_down') {
             $lines[] = $isPowerCategory ? '• Status: *PADAM / OFFLINE*' : '• Status: *OFFLINE / DOWN*';
             $lines[] = "• Hasil Cek: {$reason}";
         } else {
-            $latency = $monitor->last_latency_ms !== null ? ' (Ping: '.number_format((float) $monitor->last_latency_ms, 2).' ms)' : '';
+            $latency = $latencyText !== '' ? " (Ping: {$latencyText})" : '';
             $lines[] = ($isPowerCategory ? '• Status: *MENYALA KEMBALI (UP)*' : '• Status: *ONLINE KEMBALI (UP)*').$latency;
             if ($durationText) {
                 $lines[] = ($isPowerCategory ? '• Durasi Padam: ' : '• Durasi Gangguan: ').$durationText;
             }
         }
 
-        $lines[] = '• Waktu: '.now()->timezone('Asia/Jakarta')->format('d M Y H:i:s').' WIB';
+        $lines[] = "• Waktu: {$nowWib}";
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Render a user-defined message template with {placeholder} tokens.
+     *
+     * @param array<string,string> $vars
+     */
+    public function renderCustomTemplate(string $template, array $vars): string
+    {
+        $optionalKeys = ['area', 'ip', 'onu', 'sn', 'olt', 'port', 'state', 'latency', 'durasi'];
+        $rawLines = preg_split('/\r\n|\r|\n/', $template) ?: [];
+        $outLines = [];
+
+        foreach ($rawLines as $line) {
+            if (preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $line, $matches)) {
+                $tokens = $matches[1];
+                $allOptionalAndEmpty = true;
+                foreach ($tokens as $tk) {
+                    $val = array_key_exists($tk, $vars) ? trim((string) $vars[$tk]) : null;
+                    if ($val === null || $val !== '' || ! in_array($tk, $optionalKeys, true)) {
+                        $allOptionalAndEmpty = false;
+                        break;
+                    }
+                }
+                if ($allOptionalAndEmpty) {
+                    continue;
+                }
+            }
+
+            $rendered = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function (array $m) use ($vars) {
+                $key = $m[1];
+                if (! array_key_exists($key, $vars)) {
+                    return $m[0];
+                }
+                $val = trim((string) $vars[$key]);
+                return $val !== '' ? $val : '—';
+            }, $line);
+
+            $outLines[] = $rendered;
+        }
+
+        return trim(implode("\n", $outLines));
     }
 
     private function formatDuration(Carbon $from, Carbon $to): string

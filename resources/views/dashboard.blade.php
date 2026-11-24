@@ -149,7 +149,7 @@
         <footer class="page-footer"><span><strong>LUMINA NMS</strong> <span class="muted">/</span> Optical Network Management System</span><span class="footer-version">v1.0</span></footer>
     </main>
 
-    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':modal==='power-form','wide-dialog':['degradation','onus','ports','view','maps','provision'].includes(modal)}" aria-labelledby="modal-title">
+    <dialog x-ref="dialog" @click="if($event.target===$refs.dialog)closeModal()" @cancel.prevent="closeModal()" :class="{'onu-dialog':['onus','degradation'].includes(modal),'power-form-dialog':['power-form','power-group-form'].includes(modal),'wide-dialog':['degradation','onus','ports','view','maps','provision'].includes(modal)}" aria-labelledby="modal-title">
         <div class="modal-header"><div><span class="eyebrow" x-text="selected?selected.name:'WORKSPACE · '+db.tenant.name"></span><h2 id="modal-title" x-text="modalTitle"></h2></div><button class="icon-button" @click="closeModal()" aria-label="Tutup dialog"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
             <div class="notice danger" x-ref="errorSummary" tabindex="-1" x-show="error" role="alert" x-text="error"></div>

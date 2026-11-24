@@ -332,4 +332,68 @@ class PowerMonitoringTest extends TestCase
             ->count());
         Http::assertSent(fn ($req) => str_contains($req->url(), 'target=120363415568402255%40g.us') && str_contains($req->body(), '[MONITORING ERABLUE]'));
     }
+
+    public function test_custom_redaksi_templates_for_category_and_global_settings(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:3001/*' => Http::response(['status' => true], 200),
+        ]);
+
+        $owner = $this->owner();
+        $olt = Olt::where('tenant_id', $owner->tenant_id)->firstOrFail();
+        $port = OltPort::where('olt_id', $olt->id)->firstOrFail();
+        $onu = Onu::where('olt_id', $olt->id)->where('olt_port_id', $port->id)->firstOrFail();
+
+        NotificationSetting::forTenant($owner->tenant_id)->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_provider' => 'custom',
+            'whatsapp_endpoint_url' => 'http://127.0.0.1:3001/send-message',
+            'power_notify_enabled' => true,
+            'power_whatsapp_recipients' => '120363999999999999@g.us',
+        ]);
+
+        // Save global custom redaksi via settings endpoint
+        $this->actingAs($owner)->putJson('/power-monitors/settings', [
+            'power_notify_enabled' => true,
+            'power_whatsapp_recipients' => '120363999999999999@g.us',
+            'power_telegram_chat_id' => '',
+            'power_telegram_thread_id' => '',
+            'power_cooldown_minutes' => 5,
+            'power_down_template' => "GLOBAL DOWN: {nama} ({kategori}) - {alasan}",
+            'power_up_template' => "GLOBAL UP: {nama} ({kategori}) - Durasi {durasi}",
+        ])->assertOk()->assertJsonPath('settings.power_down_template', 'GLOBAL DOWN: {nama} ({kategori}) - {alasan}');
+
+        // Create category with its own custom redaksi
+        $group = $this->actingAs($owner)->postJson('/power-monitors/groups', [
+            'name' => 'VIP SITE',
+            'color_hex' => '#10b981',
+            'down_message_template' => "REDAKSI VIP DOWN: *{nama}* [{KATEGORI}] SN:{sn} Sebab:{alasan}",
+            'up_message_template' => "REDAKSI VIP UP: *{nama}* [{KATEGORI}] Kembali Normal",
+        ])->assertCreated()->json('group');
+
+        $monRes = $this->actingAs($owner)->postJson('/power-monitors', [
+            'name' => 'VIP CABANG TIMUR',
+            'power_monitor_group_id' => $group['id'],
+            'monitor_type' => 'onu',
+            'onu_id' => $onu->id,
+            'is_enabled' => true,
+        ])->assertCreated();
+
+        $monitorId = collect($monRes->json('monitors'))->firstWhere('name', 'VIP CABANG TIMUR')['id'];
+        PowerMonitor::whereKey($monitorId)->update(['status' => 'up']);
+
+        // Trigger DOWN -> should use category custom redaksi
+        app(NotificationService::class)->dispatchBatch($olt, [
+            ['onu' => $onu, 'port' => $port, 'old_phase' => 'working', 'new_phase' => 'los'],
+        ]);
+
+        Http::assertSent(fn ($req) => str_contains($req->body(), 'REDAKSI VIP DOWN: *VIP CABANG TIMUR* [VIP SITE] SN:'.$onu->sn.' Sebab:ONU LOS'));
+
+        // Trigger UP -> should use category custom UP redaksi
+        app(NotificationService::class)->dispatchBatch($olt, [
+            ['onu' => $onu, 'port' => $port, 'old_phase' => 'los', 'new_phase' => 'working'],
+        ]);
+
+        Http::assertSent(fn ($req) => str_contains($req->body(), 'REDAKSI VIP UP: *VIP CABANG TIMUR* [VIP SITE] Kembali Normal'));
+    }
 }
