@@ -187,9 +187,19 @@ class IntegrationApiController extends Controller
         ]);
     }
 
-    private function row(Onu $onu): array
+    private function row(Onu $onu, ?PowerMonitor $powerMonitor = null): array
     {
-        return [
+        $statusLabel = match ($onu->phase_state) {
+            'working' => 'Online (Working)',
+            'los' => 'LOS (Putus Kabel / Redaman Hilang)',
+            'dying-gasp' => 'Dying Gasp (Indikasi Mati Listrik)',
+            'poweroff' => 'Power Off',
+            'offline' => 'Offline',
+            'rebooting' => 'Rebooting',
+            default => strtoupper((string) $onu->phase_state),
+        };
+
+        $payload = [
             'onu_id' => $onu->id,
             'name' => $onu->name,
             'sn' => $onu->sn,
@@ -199,6 +209,8 @@ class IntegrationApiController extends Controller
             'olt_type' => $onu->olt->chassis_type,
             'interface' => preg_replace('/^(gpon|epon)-olt_/', '$1-onu_', $onu->port->interface_name).':'.$onu->onu_index,
             'phase_state' => $onu->phase_state,
+            'is_online' => $onu->phase_state === 'working',
+            'status_label' => $statusLabel,
             'rx_power_dbm' => $onu->rx_power,
             'olt_rx_power_dbm' => $onu->olt_rx_power,
             'pppoe_username' => $onu->pppoe_user,
@@ -213,6 +225,20 @@ class IntegrationApiController extends Controller
             'state_observed_at' => $onu->state_observed_at,
             'optical_observed_at' => $onu->optical_observed_at,
         ];
+
+        if ($powerMonitor) {
+            $payload['power_monitor'] = [
+                'id' => $powerMonitor->id,
+                'name' => $powerMonitor->name,
+                'category' => $powerMonitor->group?->name ?? $powerMonitor->group_name,
+                'status' => $powerMonitor->status,
+                'ip_address' => $powerMonitor->ip_address,
+                'latency_ms' => $powerMonitor->last_latency_ms,
+                'last_checked_at' => $powerMonitor->last_checked_at?->toIso8601String(),
+            ];
+        }
+
+        return $payload;
     }
 
     public function show(Request $r, int $id)
@@ -220,7 +246,8 @@ class IntegrationApiController extends Controller
         $tenantId = (int) $r->user()->tenant_id;
         $onu = Onu::current()->where('tenant_id', $tenantId)->with(['tags', 'olt', 'port'])->findOrFail($id);
         $groups = CustomerGroup::where('tenant_id', $tenantId)->get();
-        $row = $this->row($onu);
+        $powerMonitor = PowerMonitor::where('tenant_id', $tenantId)->where('onu_id', $onu->id)->with('group:id,name')->first();
+        $row = $this->row($onu, $powerMonitor);
         $row['customer_groups'] = $groups
             ->filter(fn (CustomerGroup $g) => $g->matchesOnu($onu))
             ->map(fn (CustomerGroup $g) => $g->name)
@@ -236,27 +263,58 @@ class IntegrationApiController extends Controller
     public function search(Request $r)
     {
         $d = $r->validate(['q' => 'required|string|min:1|max:120']);
-        $term = '%'.$d['q'].'%';
-        $rows = Onu::current()
-            ->where('tenant_id', $r->user()->tenant_id)
-            ->with(['tags', 'olt', 'port'])
-            ->where(fn ($q) => $q
-                ->where('name', 'like', $term)
-                ->orWhere('sn', 'like', $term)
-                ->orWhere('description', 'like', $term)
-                ->orWhere('pppoe_user', 'like', $term)
-                ->orWhereHas('tags', fn ($t) => $t->where('tag_name', 'like', $term)))
-            ->orderBy('id')
-            ->paginate(100);
+        $tenantId = (int) $r->user()->tenant_id;
+        $tokens = $this->extractSearchTokens($d['q']);
+
+        $query = Onu::current()
+            ->where('tenant_id', $tenantId)
+            ->with(['tags', 'olt', 'port']);
+
+        foreach ($tokens as $tok) {
+            $like = '%'.$tok.'%';
+            $query->where(fn ($q) => $q
+                ->where('name', 'like', $like)
+                ->orWhere('sn', 'like', $like)
+                ->orWhere('description', 'like', $like)
+                ->orWhere('pppoe_user', 'like', $like)
+                ->orWhereHas('olt', fn ($o) => $o->where('name', 'like', $like))
+                ->orWhereHas('tags', fn ($t) => $t->where('tag_name', 'like', $like)));
+        }
+
+        $rows = $query->orderBy('id')->paginate(100);
+        $onuIds = $rows->getCollection()->pluck('id')->all();
+        $powerByOnu = $onuIds
+            ? PowerMonitor::where('tenant_id', $tenantId)->whereIn('onu_id', $onuIds)->with('group:id,name')->get()->keyBy('onu_id')
+            : collect();
 
         return response()->json([
             'status' => 'success',
             'query' => $d['q'],
+            'tokens' => $tokens,
             'count' => $rows->count(),
             'total' => $rows->total(),
             'next_page_url' => $rows->nextPageUrl(),
-            'data' => $rows->getCollection()->map(fn ($o) => $this->row($o)),
+            'data' => $rows->getCollection()->map(fn ($o) => $this->row($o, $powerByOnu->get($o->id))),
         ]);
+    }
+
+    /**
+     * Split multi-word / conversational queries into meaningful search tokens.
+     *
+     * @return list<string>
+     */
+    private function extractSearchTokens(string $raw): array
+    {
+        $parts = preg_split('/[\s,]+/', trim($raw)) ?: [];
+        $parts = array_values(array_filter(array_map('trim', $parts), fn ($p) => $p !== ''));
+        if (count($parts) <= 1) {
+            return $parts;
+        }
+
+        $fillers = ['tolong', 'cek', 'cekin', 'status', 'onu', 'ont', 'modem', 'client', 'klien', 'pelanggan', 'user', 'dong', 'min', 'bro', 'pak', 'bu', 'cari', 'lihat', 'info', 'data', 'yang', 'di'];
+        $meaningful = array_values(array_filter($parts, fn ($p) => ! in_array(mb_strtolower($p), $fillers, true)));
+
+        return array_slice($meaningful ?: $parts, 0, 8);
     }
 
     public function badRx(Request $r)

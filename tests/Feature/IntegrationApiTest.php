@@ -84,7 +84,7 @@ class IntegrationApiTest extends TestCase
             'name' => 'ERABLUE',
             'color_hex' => '#10b981',
             'vlan_ids' => [],
-            'name_keywords' => [strtolower(substr($onu->name, 0, 5))],
+            'name_keywords' => ['erablue'],
         ]);
 
         // Search by PPPoE username
@@ -94,6 +94,15 @@ class IntegrationApiTest extends TestCase
             ->assertJsonPath('total', 1)
             ->assertJsonPath('data.0.onu_id', $onu->id)
             ->assertJsonPath('data.0.pppoe_username', 'erablue_tuntung_01@isp.net');
+
+        // Multi-word & natural-language bot query must still match hyphenated ONU names
+        $onu->update(['name' => 'SMY-ERABLUE-SITE-BANJARAN-BARAT']);
+        $this->withToken($token)
+            ->getJson('/api/v1/onus/search?q='.urlencode('tolong cek status onu client erablue banjaran'))
+            ->assertOk()
+            ->assertJsonPath('data.0.onu_id', $onu->id)
+            ->assertJsonPath('data.0.name', 'SMY-ERABLUE-SITE-BANJARAN-BARAT')
+            ->assertJsonPath('data.0.is_online', $onu->phase_state === 'working');
 
         // Direct detail lookup
         $this->withToken($token)

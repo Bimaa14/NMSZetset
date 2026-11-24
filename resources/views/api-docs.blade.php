@@ -31,8 +31,8 @@
     <pre class="terminal-output"># Ringkasan harian OLT / ONU (format laporan WCare Daily / bot ringkasan)
 curl -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/json" "{{ url('/api/v1/monitoring/summary') }}"
 
-# Cari ONU (nama, SN, deskripsi, PPPoE, atau tag)
-curl -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/json" "{{ url('/api/v1/onus/search') }}?q=Budi"
+# Cari ONU (mendukung multi-kata & kalimat tanya AI, misal "erablue banjaran")
+curl -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/json" "{{ url('/api/v1/onus/search') }}?q=erablue%20banjaran"
 
 # Cek status Monitoring ONU (mis. kategori Listrik / ERABLUE yang gangguan)
 curl -H "Authorization: Bearer YOUR_TOKEN" -H "Accept: application/json" "{{ url('/api/v1/monitoring/power') }}?status=down"</pre>
