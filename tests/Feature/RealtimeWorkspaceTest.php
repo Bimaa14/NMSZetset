@@ -150,6 +150,25 @@ class RealtimeWorkspaceTest extends TestCase {
         $owner=$this->owner();$this->actingAs($owner)->putJson('/profile',['name'=>'Wrong','username'=>$owner->username,'current_password'=>'incorrect'])->assertUnprocessable();
         $this->putJson('/profile',['name'=>'Changed','username'=>'bima_owner','current_password'=>'NmsDemo2026!','password'=>'New123','password_confirmation'=>'New123','role'=>'noc'])->assertOk()->assertJsonStructure(['csrf_token']);
         $this->assertSame('Changed',$owner->fresh()->name);$this->assertSame('bima_owner',$owner->fresh()->username);$this->assertSame('isp_owner',$owner->fresh()->role);$this->assertTrue(\Illuminate\Support\Facades\Hash::check('New123',$owner->fresh()->password));
+    }
+    public function test_errored_red_olt_triggers_auto_recovery_sync_with_backoff_and_stops_when_green():void{
+        $olt=$this->owner()->tenant->olts()->first();
+        $olt->update(['connection_mode'=>'real','monitoring_enabled'=>true,'state_observed_at'=>now(),'optical_observed_at'=>now(),'names_observed_at'=>now(),'system_observed_at'=>now(),'last_backup_at'=>now(),'traffic_observed_at'=>now(),'last_connection_error'=>'Koneksi Telnet timeout','last_connection_check_at'=>now()->subSeconds(50)]);
+        $service=app(OltOperationService::class);
+        $this->assertSame(1,$service->tick());
+        $op=OltOperation::where('active_olt_id',$olt->id)->first();
+        $this->assertNotNull($op);$this->assertSame('sync',$op->kind);
+
+        $op->update(['status'=>'failed','active_olt_id'=>null,'completed_at'=>now()]);
+        $this->assertSame(0,$service->tick());
+        $this->travel(125)->seconds();
+        $this->assertSame(1,$service->tick());
+        $op2=OltOperation::where('active_olt_id',$olt->id)->first();
+        $this->assertSame('sync',$op2->kind);
+
+        $op2->update(['status'=>'completed','active_olt_id'=>null,'completed_at'=>now()]);
+        $olt->update(['status'=>'Online','last_connection_error'=>null,'state_observed_at'=>now(),'optical_observed_at'=>now(),'names_observed_at'=>now(),'system_observed_at'=>now(),'last_backup_at'=>now(),'traffic_observed_at'=>now()]);
+        $this->assertSame(0,$service->tick());
 
 
     }
