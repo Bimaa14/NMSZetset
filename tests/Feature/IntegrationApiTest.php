@@ -170,4 +170,20 @@ class IntegrationApiTest extends TestCase
             ->assertJsonPath('summary.down', 1)
             ->assertJsonPath('data.0.name', 'ERABLUE SITE A');
     }
+
+    public function test_read_rate_limit_bucket_does_not_exhaust_reboot_or_live_buckets(): void
+    {
+        $token = $this->ownerToken('read');
+        $owner = User::where('role', 'isp_owner')->orderBy('id')->firstOrFail();
+        $onu = Onu::current()->where('tenant_id', $owner->tenant_id)->firstOrFail();
+
+        for ($i = 0; $i < 12; $i++) {
+            $this->withToken($token)->getJson('/api/v1/monitoring/summary')->assertOk();
+        }
+
+        // Read-only token must still receive 403 on /reboot (not 429 from shared read hits)
+        $this->withToken($token)->postJson('/api/v1/onus/'.$onu->id.'/reboot')->assertForbidden();
+        // And /live must still have its own 20/min budget
+        $this->withToken($token)->getJson('/api/v1/onus/'.$onu->id.'/live')->assertStatus(202);
+    }
 }
